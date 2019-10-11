@@ -1,2 +1,2 @@
-# bgpsec-traffic-gen
-A traffic generator for BGPsec Update messages.
+# bgpsec-path-gen
+A path generator for BGPsec Update messages.
