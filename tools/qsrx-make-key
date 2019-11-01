@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# This file was originally created for the NIST BGP SRx implementation which can be found at
+# https://www.nist.gov/services-resources/software/bgp-secure-routing-extension-bgp-srx-prototype
+# This version of the file was modified.
+
+if [ "$1" == "" ] ; then
+  echo "Usage: $0 name"
+  exit 1
+fi
+
+# Generate a PEM encoded certificate.
+openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem
+
+if [ -e "$1.cert" ] ; then
+  echo "A certificate $1.$EXTCERT exists for $1. First remove certificate then generate a key!"
+  exit 2;
+else
+  openssl ecparam -name prime256v1 -genkey -out $1.pem
+  openssl ec -in $1.pem -outform der -out $1.der
+fi
