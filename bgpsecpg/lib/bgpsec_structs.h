@@ -1,3 +1,6 @@
+#ifndef BGPSEC_STRUCTS_H
+#define BGPSEC_STRUCTS_H
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,3 +61,5 @@ void free_signatures(struct signature_seg *sigs);
 void prepend_sps(struct secure_path_seg *sps, struct secure_path *path);
 
 void prepend_ss(struct signature_seg *ss, struct signature_block *block);
+
+#endif

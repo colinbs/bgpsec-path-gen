@@ -21,7 +21,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <getopt.h>
+
+#include "bgpsecpg/lib/generators.h"
+#include "bgpsecpg/lib/bgpsec_structs.h"
 
 static struct option long_opts[] = {
     {"help", no_argument, 0, 'h'},
@@ -48,7 +52,6 @@ static void print_usage(void)
 int main(int argc, char *argv[])
 {
     int opt;
-    int foo;
     int option_index = 0;
 
     do {
@@ -69,6 +72,11 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
     } while (opt != -1);
+
+    char *foo = generate_bytes(10, MODE_HEX);
+    /*struct secure_path_seg *foo = new_sps(0, 0, 1);*/
+    /*free(foo);*/
+    /*foo->pcount = 1;*/
 
     return EXIT_SUCCESS;
 }

@@ -1,4 +1,4 @@
-#include "bgpsec_structs.h"
+#include "bgpsecpg/lib/bgpsec_structs.h"
 
 struct secure_path_seg *new_sps(uint8_t pcount,
                                 uint8_t flags,
