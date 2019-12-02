@@ -7,14 +7,19 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "../lib/bgpsec_structs.h"
-#include "../lib/generators.h"
+#include "bgpsecpg/lib/bgpsec_structs.h"
+#include "bgpsecpg/lib/generators.h"
 
 static void test_generate_bytes(void)
 {
     char *bytes;
 
     bytes = generate_bytes(SKI_SIZE, MODE_HEX);
+    assert(bytes);
+
+    bytes = NULL;
+
+    bytes = generate_bytes(SKI_SIZE, MODE_DEC);
     assert(bytes);
 }
 

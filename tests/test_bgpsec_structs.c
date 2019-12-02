@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "../lib/bgpsec_structs.h"
+#include "../bgpsecpg/lib/bgpsec_structs.h"
 
 uint8_t ski[] = {
     0x01,0x02,0x03,0x04,0x05,
@@ -38,9 +38,21 @@ static void test_init_structs(void)
 
     sps = new_sps(1, 0, 65536);
     assert(sps);
+    assert(sps->next == NULL);
+    assert(sps->pcount == 1);
+    assert(sps->flags == 0);
+    assert(sps->as == 65536);
 
-    /*signature = generate_bytes(71);*/
-    ss = new_ss(ski, 60, signature);
+    ss = new_ss(ski, 71, signature);
+    assert(ss);
+    assert(ss->next == NULL);
+    assert(ss->sig_len == 0);
+
+    for (int i = 0; i < SKI_SIZE; i++)
+        assert(ss->ski[i] == ski[i]);
+
+    for (int i = 0; i < 71; i++)
+        assert(ss->signature[i] == signature[i]);
 }
 
 int main()
