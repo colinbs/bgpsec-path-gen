@@ -13,6 +13,7 @@ struct secure_path_seg *new_sps(uint8_t pcount,
     new_sps->pcount = pcount;
     new_sps->flags = flags;
     new_sps->as = as;
+
     return new_sps;
 }
 
@@ -32,7 +33,8 @@ struct signature_seg *new_ss(uint8_t ski[],
     new_ss->next = NULL;
     memcpy(new_ss->ski, ski, SKI_SIZE);
     memcpy(new_ss->signature, signature, sig_len);
-    new_ss->sig_len;
+    new_ss->sig_len = sig_len;
+
     return new_ss;
 }
 
