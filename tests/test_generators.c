@@ -16,11 +16,13 @@ static void test_generate_bytes(void)
 
     bytes = generate_bytes(SKI_SIZE, MODE_HEX);
     assert(bytes);
+    free(bytes);
 
     bytes = NULL;
 
     bytes = generate_bytes(SKI_SIZE, MODE_DEC);
     assert(bytes);
+    free(bytes);
 }
 
 int main()
