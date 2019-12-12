@@ -154,6 +154,12 @@ int main(int argc, char *argv[])
             break;
         case 'c':
             printf("reading config file: %s\n", optarg);
+            rtval = open_conf((const char *)optarg);
+            if (rtval == 0) {
+                bgpsecpg_dbg("Successfully opened file %s", optarg);
+            } else {
+                bgpsecpg_dbg("Could not open file %s", optarg);
+            }
             break;
         case 'a':
             printf("Passed ASNs: %s\n", optarg);
