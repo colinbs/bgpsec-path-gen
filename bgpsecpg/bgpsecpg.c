@@ -26,6 +26,27 @@
 
 #include "bgpsecpg/lib/generators.h"
 #include "bgpsecpg/lib/bgpsec_structs.h"
+#include "bgpsecpg/lib/config_parser.h"
+#include "bgpsecpg/lib/log.h"
+#include "bgpsecpg/lib/keyhandler.h"
+
+#include "rtrlib/rtrlib.h"
+
+#define ASN_MAX_LEN     11
+#define MAX_ASN_COUNT   1000
+
+enum return_vals {
+    SUCCESS,
+    ERROR
+};
+
+struct master_conf {
+    struct tr_socket *tr_tcp;
+    struct tr_tcp_config *tcp_config;
+    struct rtr_socket *rtr_tcp;
+    struct rtr_mgr_group *group;
+    struct rtr_mgr_config *config;
+};
 
 static struct option long_opts[] = {
     {"help", no_argument, 0, 'h'},
@@ -33,6 +54,11 @@ static struct option long_opts[] = {
     {"output", required_argument, 0, 'o'},
     {"format", required_argument, 0, 'f'},
     {"gen-config", no_argument, 0, 'g'},
+    {"asns", required_argument, 0, 'a'},
+    {"nlri", required_argument, 0, 'n'},
+    {"keys", required_argument, 0, 'k'},
+    /*{"host", required_argument, 0, '\0'},*/
+    /*{"port", required_argument, 0, '\0'},*/
     {0, 0, 0, 0}
 };
 
@@ -47,15 +73,79 @@ static void print_usage(void)
             \t\tdisplayed. Either WireShark-like (default) or JSON\n");
     printf("-g, --gen-config\tGenerate an example config file named\n\
             \t\tbgpsecpg.conf.example\n");
+    printf("-a, --asns\t\tSpecify a comma-separated list of ASNs\n");
+    printf("-n, --nlri\t\tSpecify the NLRI\n");
+    printf("-k, --keys\t\tPath to the directory containing the public\n\
+            \t\tand private router keys");
+}
+
+static int establish_rtr_connection(struct master_conf **cnf) {
+    struct master_conf *conf = malloc(sizeof(struct master_conf));
+    conf->tr_tcp = malloc(sizeof(struct tr_socket));
+    char tcp_host[] = "0.0.0.0";
+    char tcp_port[] = "8383";
+
+    conf->tcp_config = malloc(sizeof(struct tr_tcp_config));
+    conf->tcp_config->host = tcp_host;
+    conf->tcp_config->port = tcp_port,
+    conf->tcp_config->bindaddr = NULL;
+    conf->tcp_config->data = NULL;
+    conf->tcp_config->new_socket = NULL;
+    conf->tcp_config->connect_timeout = 0;
+    tr_tcp_init(conf->tcp_config, conf->tr_tcp);
+
+    conf->rtr_tcp = malloc(sizeof(struct rtr_socket));
+    conf->rtr_tcp->tr_socket = conf->tr_tcp;
+
+    conf->group = malloc(sizeof(struct rtr_mgr_group));
+
+    conf->group[0].sockets = malloc(sizeof(struct rtr_socket*));
+    conf->group[0].sockets_len = 1;
+    conf->group[0].sockets[0] = conf->rtr_tcp;
+    conf->group[0].preference = 1;
+
+    int ret = rtr_mgr_init(&(conf->config), conf->group, 1, 30, 600, 600, NULL, NULL, NULL, NULL);
+
+    if (ret == RTR_ERROR) {
+        free(conf->group->sockets);
+        free(conf->group);
+        free(conf->rtr_tcp);
+        free(conf->tr_tcp);
+        free(conf->tcp_config);
+        return ERROR;
+    }
+
+    rtr_mgr_start(conf->config);
+
+    while(!rtr_mgr_conf_in_sync(conf->config)) {
+        sleep(1);
+    }
+
+    *cnf = conf;
+
+    return SUCCESS;
 }
 
 int main(int argc, char *argv[])
 {
     int opt;
     int option_index = 0;
+    int rtval = 0;
+    int i;
+    const char *tok = {","};
+    char asns[MAX_ASN_COUNT][ASN_MAX_LEN];
+    char *sub = NULL;
+    struct master_conf *conf = NULL;
+    struct rtr_bgpsec *bgpsec = NULL;
+    struct bgpsec_upd *upd = NULL;
+    struct rtr_signature_seg *new_sig = NULL;
+    uint32_t nlri = 0xC0000200;
+    struct key *k = NULL;
+    /*char *host = "0.0.0.0";*/
+    /*char *port = "8383";*/
 
     do {
-        opt = getopt_long(argc, argv, "hc:o:f:g", long_opts, &option_index);
+        opt = getopt_long(argc, argv, "hc:o:f:ga:n:k:", long_opts, &option_index);
 
         switch (opt) {
         case 'h':
@@ -65,6 +155,33 @@ int main(int argc, char *argv[])
         case 'c':
             printf("reading config file: %s\n", optarg);
             break;
+        case 'a':
+            printf("Passed ASNs: %s\n", optarg);
+            i = 0;
+            sub = strtok(optarg, tok);
+            while (sub) {
+                memcpy(asns[i++], sub, strlen(sub));
+                sub = strtok(NULL, tok);
+            }
+
+            bgpsec = generate_bgpsec_data(asns, i, nlri);
+            if (!bgpsec)
+                exit(EXIT_FAILURE);
+
+            /* establish the RTR connection */
+            rtval = establish_rtr_connection(&conf);
+            if (rtval == ERROR)
+                exit(EXIT_FAILURE);
+
+            break;
+        case 'n':
+            printf("Passed NLRI: %s\n", optarg);
+            break;
+        case 'k':
+            printf("Key directory: %s\n", optarg);
+            k = load_key(optarg);
+            rtval = rtr_mgr_bgpsec_generate_signature(bgpsec, k->privkey, &new_sig);
+            printf("%d\n", rtval);
         case -1:
             break;
         default:
@@ -73,10 +190,24 @@ int main(int argc, char *argv[])
         }
     } while (opt != -1);
 
-    char *foo = generate_bytes(10, MODE_HEX);
-    /*struct secure_path_seg *foo = new_sps(0, 0, 1);*/
-    /*free(foo);*/
-    /*foo->pcount = 1;*/
+    /* stop the RTR connection */
+    rtr_mgr_stop(conf->config);
+
+    /* free conf and sec_path */
+    rtr_mgr_free(conf->config);
+    free(conf->group->sockets);
+    free(conf->group);
+    free(conf->rtr_tcp);
+    free(conf->tr_tcp);
+    free(conf->tcp_config);
+    free(conf);
+
+    rtr_mgr_bgpsec_free(bgpsec);
+
+    if (k)
+        key_free(k);
+    if (new_sig)
+        rtr_mgr_bgpsec_free_signatures(new_sig);
 
     return EXIT_SUCCESS;
 }
