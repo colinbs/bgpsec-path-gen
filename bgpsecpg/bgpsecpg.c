@@ -21,7 +21,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <stdlib.h>
 #include <getopt.h>
 
 #include "bgpsecpg/lib/generators.h"
@@ -230,6 +229,8 @@ int main(int argc, char *argv[])
         memcpy(new_sig->ski, vault->keys[i]->ski, SKI_SIZE);
         rtr_mgr_bgpsec_prepend_sig_seg(bgpsec, new_sig);
     }
+
+    print_bgpsec_path(bgpsec);
 
 err:
     if (conf) {
