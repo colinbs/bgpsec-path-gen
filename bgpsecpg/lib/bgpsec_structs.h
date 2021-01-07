@@ -8,11 +8,6 @@
 #define SKI_SIZE 20
 #define SECURE_PATH_SEG_SIZE (sizeof(struct secure_path_seg))
 
-struct private_key {
-    uint8_t ski[SKI_SIZE];
-    uint8_t *key;
-};
-
 struct secure_path {
     uint8_t path_len;
     struct secure_path_seg *path;

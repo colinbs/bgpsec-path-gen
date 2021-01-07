@@ -134,15 +134,19 @@ int main(int argc, char *argv[])
     int i;
     const char *tok = {","};
     char asns[MAX_ASN_COUNT][ASN_MAX_LEN];
+    int asn_count = 0;
     char *sub = NULL;
+    char *keydir = NULL;
     struct master_conf *conf = NULL;
     struct rtr_bgpsec *bgpsec = NULL;
-    struct bgpsec_upd *upd = NULL;
+    /*struct bgpsec_upd *upd = NULL;*/
     struct rtr_signature_seg *new_sig = NULL;
     uint32_t nlri = 0xC0000200;
-    struct key *k = NULL;
+    struct key_vault *vault = NULL;
     /*char *host = "0.0.0.0";*/
     /*char *port = "8383";*/
+    int exit_val = EXIT_SUCCESS;
+    uint32_t origin_as = 0;
 
     do {
         opt = getopt_long(argc, argv, "hc:o:f:ga:n:k:", long_opts, &option_index);
@@ -168,26 +172,16 @@ int main(int argc, char *argv[])
             while (sub) {
                 memcpy(asns[i++], sub, strlen(sub));
                 sub = strtok(NULL, tok);
+                asn_count++;
+                origin_as = atoi(asns[i-1]);
             }
-
-            bgpsec = generate_bgpsec_data(asns, i, nlri);
-            if (!bgpsec)
-                exit(EXIT_FAILURE);
-
-            /* establish the RTR connection */
-            rtval = establish_rtr_connection(&conf);
-            if (rtval == ERROR)
-                exit(EXIT_FAILURE);
-
             break;
         case 'n':
             printf("Passed NLRI: %s\n", optarg);
             break;
         case 'k':
             printf("Key directory: %s\n", optarg);
-            k = load_key(optarg);
-            rtval = rtr_mgr_bgpsec_generate_signature(bgpsec, k->privkey, &new_sig);
-            printf("%d\n", rtval);
+            keydir = optarg;
         case -1:
             break;
         default:
@@ -196,24 +190,65 @@ int main(int argc, char *argv[])
         }
     } while (opt != -1);
 
-    /* stop the RTR connection */
-    rtr_mgr_stop(conf->config);
+    /* establish the RTR connection */
+    rtval = establish_rtr_connection(&conf);
+    if (rtval == ERROR) {
+        exit_val = EXIT_FAILURE;
+        goto err;
+    }
 
-    /* free conf and sec_path */
-    rtr_mgr_free(conf->config);
-    free(conf->group->sockets);
-    free(conf->group);
-    free(conf->rtr_tcp);
-    free(conf->tr_tcp);
-    free(conf->tcp_config);
-    free(conf);
+    vault = load_key_dir(keydir);
+    if (!vault) {
+        exit_val = EXIT_FAILURE;
+        goto err;
+    }
 
-    rtr_mgr_bgpsec_free(bgpsec);
+    bgpsec = generate_bgpsec_data(origin_as, nlri);
+    if (!bgpsec) {
+        exit_val = EXIT_FAILURE;
+        goto err;
+    }
 
-    if (k)
-        key_free(k);
-    if (new_sig)
-        rtr_mgr_bgpsec_free_signatures(new_sig);
+    for (int i = 0; i < asn_count; i++) {
+        struct rtr_secure_path_seg *new_path =
+            rtr_mgr_bgpsec_new_secure_path_seg(0, 0, atoi(asns[i]));
+        if (!new_path) {
+            printf("error generating sec path seg\n");
+            exit_val = EXIT_FAILURE;
+            goto err;
+        }
+        rtr_mgr_bgpsec_append_sec_path_seg(bgpsec, new_path);
 
-    return EXIT_SUCCESS;
+        struct key *k = vault->keys[i];
+        new_sig = NULL;
+        rtval = rtr_mgr_bgpsec_generate_signature(bgpsec, k->data, &new_sig);
+        if (rtval != RTR_BGPSEC_SUCCESS) {
+            printf("rtval: %d\n", rtval);
+            exit_val = EXIT_FAILURE;
+            goto err;
+        }
+        memcpy(new_sig->ski, vault->keys[i]->ski, SKI_SIZE);
+        rtr_mgr_bgpsec_prepend_sig_seg(bgpsec, new_sig);
+    }
+
+err:
+    if (conf) {
+        /* stop the RTR connection */
+        rtr_mgr_stop(conf->config);
+
+        /* free conf and sec_path */
+        rtr_mgr_free(conf->config);
+        free(conf->group->sockets);
+        free(conf->group);
+        free(conf->rtr_tcp);
+        free(conf->tr_tcp);
+        free(conf->tcp_config);
+        free(conf);
+    }
+    if (bgpsec)
+        rtr_mgr_bgpsec_free(bgpsec);
+    if (vault)
+        vault_free(vault);
+
+    return exit_val;
 }
