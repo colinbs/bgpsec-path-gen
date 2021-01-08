@@ -49,10 +49,9 @@ struct master_conf {
 
 static struct option long_opts[] = {
     {"help", no_argument, 0, 'h'},
-    {"config", required_argument, 0, 'c'},
+    /*{"config", required_argument, 0, 'c'},*/
     {"output", required_argument, 0, 'o'},
-    {"format", required_argument, 0, 'f'},
-    {"gen-config", no_argument, 0, 'g'},
+    /*{"gen-config", no_argument, 0, 'g'},*/
     {"asns", required_argument, 0, 'a'},
     {"nlri", required_argument, 0, 'n'},
     {"keys", required_argument, 0, 'k'},
@@ -66,16 +65,14 @@ static void print_usage(void)
     printf("Usage: bgpsecpg [OPTION]...\n");
     printf("\n");
     printf("-h, --help\t\tShow this help\n");
-    printf("-c, --config\t\tSpecify the config file\n");
+    /*printf("-c, --config\t\tSpecify the config file\n");*/
     printf("-o, --output\t\tName of the output file\n");
-    printf("-f, --format\t\tThe format in which the output file should be\n\
-            \t\tdisplayed. Either WireShark-like (default) or JSON\n");
-    printf("-g, --gen-config\tGenerate an example config file named\n\
-            \t\tbgpsecpg.conf.example\n");
+    /*printf("-g, --gen-config\tGenerate an example config file named\n\*/
+            /*\t\tbgpsecpg.conf.example\n");*/
     printf("-a, --asns\t\tSpecify a comma-separated list of ASNs\n");
     printf("-n, --nlri\t\tSpecify the NLRI\n");
     printf("-k, --keys\t\tPath to the directory containing the public\n\
-            \t\tand private router keys");
+            \t\tand private router keys\n");
 }
 
 static int establish_rtr_connection(struct master_conf **cnf) {
@@ -156,15 +153,15 @@ int main(int argc, char *argv[])
             print_usage();
             exit(EXIT_FAILURE);
             break;
-        case 'c':
-            printf("reading config file: %s\n", optarg);
-            rtval = open_conf((const char *)optarg);
-            if (rtval == 0) {
-                bgpsecpg_dbg("Successfully opened file %s", optarg);
-            } else {
-                bgpsecpg_dbg("Could not open file %s", optarg);
-            }
-            break;
+        /*case 'c':*/
+            /*printf("reading config file: %s\n", optarg);*/
+            /*rtval = open_conf((const char *)optarg);*/
+            /*if (rtval == 0) {*/
+                /*bgpsecpg_dbg("Successfully opened file %s", optarg);*/
+            /*} else {*/
+                /*bgpsecpg_dbg("Could not open file %s", optarg);*/
+            /*}*/
+            /*break;*/
         case 'a':
             printf("Passed ASNs: %s\n", optarg);
             i = 0;
