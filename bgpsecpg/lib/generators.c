@@ -132,5 +132,6 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     memcpy(upd, &tmp16, 2);
 
     new_upd->upd = start;
+    new_upd->len = total_len;
     return new_upd;
 }

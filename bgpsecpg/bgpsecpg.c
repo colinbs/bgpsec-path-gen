@@ -136,6 +136,7 @@ int main(int argc, char *argv[])
     int asn_count = 0;
     char *sub = NULL;
     char *keydir = NULL;
+    char *outdir = NULL;
     struct master_conf *conf = NULL;
     struct rtr_bgpsec *bgpsec = NULL;
     struct bgpsec_upd *upd = NULL;
@@ -181,6 +182,10 @@ int main(int argc, char *argv[])
         case 'k':
             printf("Key directory: %s\n", optarg);
             keydir = optarg;
+            break;
+        case 'o':
+            outdir = optarg;
+            break;
         case -1:
             break;
         default:
@@ -232,6 +237,10 @@ int main(int argc, char *argv[])
 
     print_bgpsec_path(bgpsec);
     upd = generate_bgpsec_upd(bgpsec);
+
+    if (outdir) {
+        write_output(outdir, upd);
+    }
 
 err:
     if (conf) {

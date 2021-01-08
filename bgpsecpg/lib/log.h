@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include "generators.h"
 #include "rtrlib/rtrlib.h"
 
 void bgpsecpg_dbg(const char *frmt, ...) __attribute__((format(printf, 1, 2)));
@@ -23,6 +24,8 @@ int bgpsec_segment_to_str(
 		struct rtr_secure_path_seg *sec_path);
 
 void print_bgpsec_path(struct rtr_bgpsec *bgpsec);
+
+void write_output(char *outdir, struct bgpsec_upd *upd);
 
 #define BGPSECPG_DBG(fmt, ...) bgpsecpg_dbg("BGPSECPG: " fmt, ## __VA_ARGS__)
 #define BGPSECPG_DBG1(a) bgpsecpg_dbg("BGPSECPG: " a)

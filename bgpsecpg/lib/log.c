@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "log.h"
+#include "generators.h"
 
 void bgpsecpg_dbg(const char *frmt, ...)
 {
@@ -123,5 +124,26 @@ void print_bgpsec_path(struct rtr_bgpsec *bgpsec) {
         printf("%s\n", buffer);
         tmp_sig = tmp_sig->next;
         tmp_sec = tmp_sec->next;
+    }
+}
+
+void write_output(char *outdir, struct bgpsec_upd *upd) {
+    FILE *output_f = NULL;
+    int bytes_written;
+
+    if (!upd)
+        return;
+
+    output_f = fopen(outdir, "wb");
+    if (!output_f)
+        return;
+
+    bytes_written = fwrite(upd->upd, sizeof(uint8_t), upd->len, output_f);
+    fclose(output_f);
+
+    if (bytes_written == upd->len) {
+        printf("File successfully written\n");
+    } else {
+        printf("Error writing file\n");
     }
 }
