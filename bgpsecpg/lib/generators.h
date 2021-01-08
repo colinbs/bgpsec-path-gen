@@ -26,12 +26,9 @@ struct rtr_bgpsec *generate_bgpsec_data(uint32_t origin_as,
 
 uint8_t *generate_new_upd();
 
-struct bgpsec_upd *generate_bgpsec_upd(struct rtr_secure_path_seg *sec_path,
-                                       uint8_t *nlri);
+struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec);
 
 struct rtr_signature_seg *generate_signature(
                             struct rtr_bgpsec *data,
-                            struct rtr_secure_path_seg *secpath,
-                            struct key *priv_key,
-                            uint32_t nlri);
+                            struct key *priv_key);
 #endif

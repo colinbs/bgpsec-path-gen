@@ -1,4 +1,5 @@
-#include "bgpsecpg/lib/bgpsec_structs.h"
+#include "bgpsec_structs.h"
+#include "rtrlib/rtrlib.h"
 
 struct secure_path_seg *new_sps(uint8_t pcount,
                                 uint8_t flags,
@@ -101,4 +102,23 @@ void prepend_ss(struct signature_seg *ss, struct signature_block *block)
     ss->next = block->sigs;
     block->sigs = ss;
     block->sigs_len += 1;
+}
+
+int get_upd_len(struct rtr_bgpsec *bgpsec) {
+    int total_len = 0;
+    struct rtr_signature_seg *sig = bgpsec->sigs;
+
+    total_len += 4; // Flags (1), Type Code (1), Length (2)
+    total_len += 2; // Secure Path Length Field (2)
+    total_len += bgpsec->path_len * 6; // Path Count * Path Size (6)
+    total_len += 2; // Signature Block Length Field (2)
+    total_len += 1; // Algorithm ID (1)
+    while (sig) {
+        total_len += SKI_SIZE; // SKI Size (20)
+        total_len += 2; // Signature Length Field (2)
+        total_len += sig->sig_len; // Signature Length (Var)
+        sig = sig->next;
+    }
+
+    return total_len;
 }

@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
     char *keydir = NULL;
     struct master_conf *conf = NULL;
     struct rtr_bgpsec *bgpsec = NULL;
-    /*struct bgpsec_upd *upd = NULL;*/
+    struct bgpsec_upd *upd = NULL;
     struct rtr_signature_seg *new_sig = NULL;
     uint32_t nlri = 0xC0000200;
     struct key_vault *vault = NULL;
@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < asn_count; i++) {
         struct rtr_secure_path_seg *new_path =
-            rtr_mgr_bgpsec_new_secure_path_seg(0, 0, atoi(asns[i]));
+            rtr_mgr_bgpsec_new_secure_path_seg(1, 0, atoi(asns[i]));
         if (!new_path) {
             printf("error generating sec path seg\n");
             exit_val = EXIT_FAILURE;
@@ -231,6 +231,7 @@ int main(int argc, char *argv[])
     }
 
     print_bgpsec_path(bgpsec);
+    upd = generate_bgpsec_upd(bgpsec);
 
 err:
     if (conf) {
@@ -250,6 +251,10 @@ err:
         rtr_mgr_bgpsec_free(bgpsec);
     if (vault)
         vault_free(vault);
+    if (upd) {
+        free(upd->upd);
+        free(upd);
+    }
 
     return exit_val;
 }
