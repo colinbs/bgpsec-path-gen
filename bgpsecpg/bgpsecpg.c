@@ -57,6 +57,7 @@ static struct option long_opts[] = {
     {"keys", required_argument, 0, 'k'},
     /*{"host", required_argument, 0, '\0'},*/
     /*{"port", required_argument, 0, '\0'},*/
+    {"read", required_argument, 0, 'r'},
     {0, 0, 0, 0}
 };
 
@@ -73,6 +74,8 @@ static void print_usage(void)
     printf("-n, --nlri\t\tSpecify the NLRI\n");
     printf("-k, --keys\t\tPath to the directory containing the public\n\
             \t\tand private router keys\n");
+    printf("-r, --read\t\tPrint a binary BGPsec_PATH in human readable\n\
+            \t\tform\n");
 }
 
 static int establish_rtr_connection(struct master_conf **cnf) {
@@ -133,7 +136,8 @@ int main(int argc, char *argv[])
     int asn_count = 0;
     char *sub = NULL;
     char *keydir = NULL;
-    char *outdir = NULL;
+    char *outfile = NULL;
+    char *readfile = NULL;
     struct master_conf *conf = NULL;
     struct rtr_bgpsec *bgpsec = NULL;
     struct bgpsec_upd *upd = NULL;
@@ -146,7 +150,7 @@ int main(int argc, char *argv[])
     uint32_t origin_as = 0;
 
     do {
-        opt = getopt_long(argc, argv, "hc:o:f:ga:n:k:", long_opts, &option_index);
+        opt = getopt_long(argc, argv, "ho:a:n:k:r:", long_opts, &option_index);
 
         switch (opt) {
         case 'h':
@@ -181,15 +185,23 @@ int main(int argc, char *argv[])
             keydir = optarg;
             break;
         case 'o':
-            outdir = optarg;
+            outfile = optarg;
+            break;
+        case 'r':
+            readfile = optarg;
             break;
         case -1:
             break;
         default:
             print_usage();
-            exit(EXIT_FAILURE);
+            exit(EXIT_SUCCESS);
         }
     } while (opt != -1);
+
+    if (readfile) {
+        parse_binary_path(readfile);
+        exit(EXIT_SUCCESS);
+    }
 
     /* establish the RTR connection */
     rtval = establish_rtr_connection(&conf);
@@ -235,8 +247,8 @@ int main(int argc, char *argv[])
     print_bgpsec_path(bgpsec);
     upd = generate_bgpsec_upd(bgpsec);
 
-    if (outdir) {
-        write_output(outdir, upd);
+    if (outfile) {
+        write_output(outfile, upd);
     }
 
 err:

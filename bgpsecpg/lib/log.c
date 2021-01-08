@@ -147,3 +147,30 @@ void write_output(char *outdir, struct bgpsec_upd *upd) {
         printf("Error writing file\n");
     }
 }
+
+void parse_binary_path(char *readfile) {
+    FILE *f = NULL;
+    uint8_t fbuffer[4096];
+    int bytes_read;
+
+    memset(fbuffer, 0, 4096);
+
+    if (!readfile)
+        return;
+
+    f = fopen(readfile, "rb");
+    if (!f)
+        return;
+
+    bytes_read = fread(fbuffer, sizeof(uint8_t), 4096, f);
+    if (bytes_read == 0) {
+        printf("Error reading file\n");
+    }
+
+    char pbuffer[(4096 * 3) + 1];
+    memset(pbuffer, 0, sizeof(pbuffer));
+    byte_sequence_to_str(pbuffer, fbuffer, bytes_read, 2);
+    printf("%s", pbuffer);
+
+    fclose(f);
+}
