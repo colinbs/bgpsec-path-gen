@@ -54,3 +54,14 @@ dkms.conf
 #NIST BGPSRx
 NIST-BGP-SRx/
 tools/bgpsrx/
+
+# Keys
+keys/
+
+# Autocomplete files
+tags
+.ycm_extra_conf.py
+compile_commands.json
+
+# Build output
+build/
