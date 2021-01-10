@@ -14,6 +14,8 @@
 #include "log.h"
 #include "generators.h"
 
+#define BGPSECPG_PREFIX_STR "BGPSEC Path Gen:"
+
 #define MAX_BGPSEC_SEG_STR_LEN 1024
 #define MAX_BYTE_SEQ_STR_LEN 256
 #define MAX_BGPSEC_BIN_PATH_STR_LEN 4096
@@ -33,15 +35,17 @@ void bgpsecpg_dbg(const char *frmt, ...)
 
 		if (localtime_r(&tv.tv_sec, &tm)) {
 			fprintf(stderr,
-				"(%04d/%02d/%02d %02d:%02d:%02d:%06ld): ",
+				"(%04d/%02d/%02d %02d:%02d:%02d:%06ld): %s ",
 				tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-				tm.tm_hour, tm.tm_min, tm.tm_sec, tv.tv_usec);
+				tm.tm_hour, tm.tm_min, tm.tm_sec, tv.tv_usec,
+                BGPSECPG_PREFIX_STR);
 			fail = false;
 		}
 	}
 
 	if (fail)
-		fprintf(stderr, "(%jd): ", (intmax_t)time(0));
+		fprintf(stderr, "(%jd): %s", (intmax_t)time(0),
+                BGPSECPG_PREFIX_STR);
 
 	vfprintf(stderr, frmt, argptr);
 	fprintf(stderr, "\n");
