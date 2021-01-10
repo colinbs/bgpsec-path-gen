@@ -33,6 +33,7 @@
 
 #define ASN_MAX_LEN     11
 #define MAX_ASN_COUNT   1000
+#define DUMMY_TARGET_AS 65445
 
 enum return_vals {
     SUCCESS,
@@ -58,6 +59,7 @@ static struct option long_opts[] = {
     /*{"host", required_argument, 0, '\0'},*/
     /*{"port", required_argument, 0, '\0'},*/
     {"read", required_argument, 0, 'r'},
+    {"target-as", required_argument, 0, 't'},
     {0, 0, 0, 0}
 };
 
@@ -76,6 +78,9 @@ static void print_usage(void)
             \t\tand private router keys\n");
     printf("-r, --read\t\tPrint a binary BGPsec_PATH in human readable\n\
             \t\tform\n");
+    printf("-t, --target-as\t\tSpeficy the target AS for the last\n\
+            generated signature\n");
+
 }
 
 static int establish_rtr_connection(struct master_conf **cnf) {
@@ -148,7 +153,7 @@ int main(int argc, char *argv[])
     /*char *port = "8383";*/
     int exit_val = EXIT_SUCCESS;
     uint32_t origin_as = 0;
-    uint32_t target_as = 1234;
+    uint32_t target_as = 0;
 
     do {
         opt = getopt_long(argc, argv, "ho:a:n:k:r:", long_opts, &option_index);
@@ -174,7 +179,12 @@ int main(int argc, char *argv[])
                 memcpy(asns[i++], sub, strlen(sub));
                 sub = strtok(NULL, tok);
                 asn_count++;
-                origin_as = atoi(asns[i-1]);
+            }
+            origin_as = atoi(asns[i - 1]);
+            if (asn_count > 1) {
+                target_as = atoi(asns[i - 2]);
+            } else {
+                target_as = DUMMY_TARGET_AS;
             }
             break;
         case 'n':
@@ -188,6 +198,8 @@ int main(int argc, char *argv[])
         case 'r':
             readfile = optarg;
             break;
+        case 't':
+            target_as = atoi(optarg);
         case -1:
             break;
         default:
@@ -220,7 +232,7 @@ int main(int argc, char *argv[])
         goto err;
     }
 
-    for (int i = 0; i < asn_count; i++) {
+    for (int i = (asn_count - 1); i >= 0; i--) {
         struct rtr_secure_path_seg *new_path =
             rtr_mgr_bgpsec_new_secure_path_seg(1, 0, atoi(asns[i]));
         if (!new_path) {
@@ -239,6 +251,11 @@ int main(int argc, char *argv[])
         }
         memcpy(new_sig->ski, vault->keys[i]->ski, SKI_SIZE);
         rtr_mgr_bgpsec_prepend_sig_seg(bgpsec, new_sig);
+        if (i > 0) {
+            bgpsec->target_as = atoi(asns[i - 1]);
+        } else {
+            bgpsec->target_as = DUMMY_TARGET_AS;
+        }
     }
 
     /*print_bgpsec_path(bgpsec);*/
