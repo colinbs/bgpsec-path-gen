@@ -7,6 +7,7 @@
 #include "keyhandler.h"
 
 #define PRIV_KEY_BUFFER_SIZE 500
+#define SKI_STR_SIZE 41
 
 struct key_vault *load_key_dir(char *filepath) {
     DIR *d = NULL;
@@ -23,12 +24,15 @@ struct key_vault *load_key_dir(char *filepath) {
     
     while ((d_ent = readdir(d)) != NULL) {
         if (d_ent->d_type == DT_REG) {
-            if (strstr(d_ent->d_name, ".der") != NULL) {
-                char fullpath[256] = {'\0'};
+            if (strstr(d_ent->d_name, ".der") != NULL
+                && strlen(d_ent->d_name) == 44) {
+                char fullpath[256];
+                memset(fullpath, 0, 256);
                 strcat(fullpath, filepath);
-                strcat(fullpath, "/");
+                if (fullpath[strlen(fullpath) - 1] != '/') {
+                    strcat(fullpath, "/");
+                }
                 strcat(fullpath, d_ent->d_name);
-                printf("%s\n", fullpath);
                 struct key *k = load_key(fullpath, d_ent->d_name);
                 if (k)
                     add_key_to_vault(vault, k);
@@ -46,6 +50,7 @@ struct key *load_key(char *filepath, char *filename) {
     uint16_t length = 0;
     char priv_filepath[strlen(filepath)];
     FILE *keyfile = NULL;
+    unsigned char ski_buffer[SKI_SIZE];
 
     if (!k)
         return NULL;
@@ -74,7 +79,8 @@ struct key *load_key(char *filepath, char *filename) {
 
     memcpy(k->data, &tmp_buff, length);
     k->privkey_len = length;
-    memcpy(k->ski, filename, SKI_SIZE);
+    ski_char_to_hex(ski_buffer, (unsigned char *)filename);
+    memcpy(k->ski, ski_buffer, SKI_SIZE);
 
     return k;
 }
@@ -97,7 +103,32 @@ void key_free(struct key *k) {
     free(k);
 }
 
-void print_filename(char *filepath) {
-    char *foo = basename(filepath);
-    printf("%s\n", foo);
+int chartob16(unsigned char hex_char)
+{
+    if (hex_char > 47 && hex_char < 58)
+        return hex_char - 48;
+
+    if (hex_char > 64 && hex_char < 71)
+        return hex_char - 55;
+
+    if (hex_char > 96 && hex_char < 103)
+        return hex_char - 87;
+
+    return -1;
+}
+
+int ski_char_to_hex(uint8_t *buffer, unsigned char *ski)
+{
+    char ch1;
+    char ch2;
+
+    for (int i = 0, j = 0; i < (SKI_STR_SIZE - 1); i += 2, j++) {
+        ch1 = chartob16(ski[i]);
+        ch2 = chartob16(ski[i+1]);
+        if (ch1 == -1 || ch2 == -1)
+            return (i + 1);
+        buffer[j] = (ch1 << 4) | ch2;
+    }
+
+    return 0;
 }

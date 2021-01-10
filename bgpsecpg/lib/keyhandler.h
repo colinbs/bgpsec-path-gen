@@ -26,6 +26,8 @@ void vault_free(struct key_vault *vault);
 
 void key_free(struct key *k);
 
-void print_filename(char *filename);
+int chartob16(unsigned char hex_char);
+
+int ski_char_to_hex(uint8_t *buffer, unsigned char *ski);
 
 #endif
