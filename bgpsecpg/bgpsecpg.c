@@ -168,7 +168,6 @@ int main(int argc, char *argv[])
             /*}*/
             /*break;*/
         case 'a':
-            printf("Passed ASNs: %s\n", optarg);
             i = 0;
             sub = strtok(optarg, tok);
             while (sub) {
@@ -179,10 +178,8 @@ int main(int argc, char *argv[])
             }
             break;
         case 'n':
-            printf("Passed NLRI: %s\n", optarg);
             break;
         case 'k':
-            printf("Key directory: %s\n", optarg);
             keydir = optarg;
             break;
         case 'o':
@@ -227,7 +224,7 @@ int main(int argc, char *argv[])
         struct rtr_secure_path_seg *new_path =
             rtr_mgr_bgpsec_new_secure_path_seg(1, 0, atoi(asns[i]));
         if (!new_path) {
-            printf("error generating sec path seg\n");
+            bgpsecpg_dbg("error generating sec path seg");
             exit_val = EXIT_FAILURE;
             goto err;
         }
@@ -237,7 +234,6 @@ int main(int argc, char *argv[])
         new_sig = NULL;
         rtval = rtr_mgr_bgpsec_generate_signature(bgpsec, k->data, &new_sig);
         if (rtval != RTR_BGPSEC_SUCCESS) {
-            printf("rtval: %d\n", rtval);
             exit_val = EXIT_FAILURE;
             goto err;
         }
@@ -245,7 +241,7 @@ int main(int argc, char *argv[])
         rtr_mgr_bgpsec_prepend_sig_seg(bgpsec, new_sig);
     }
 
-    print_bgpsec_path(bgpsec);
+    /*print_bgpsec_path(bgpsec);*/
     upd = generate_bgpsec_upd(bgpsec);
 
     if (outfile) {

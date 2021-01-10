@@ -147,9 +147,9 @@ void write_output(char *outdir, struct bgpsec_upd *upd) {
     fclose(output_f);
 
     if (bytes_written == upd->len) {
-        printf("File successfully written\n");
+        bgpsecpg_dbg("File successfully written");
     } else {
-        printf("Error writing file\n");
+        bgpsecpg_dbg("Error writing file");
     }
 }
 
@@ -169,13 +169,13 @@ void parse_binary_path(char *readfile) {
 
     bytes_read = fread(fbuffer, sizeof(uint8_t), MAX_BGPSEC_BIN_PATH_STR_LEN, f);
     if (bytes_read == 0) {
-        printf("Error reading file\n");
+        bgpsecpg_dbg("Error reading file");
     }
 
     char pbuffer[(MAX_BGPSEC_BIN_PATH_STR_LEN * 3) + 1];
     memset(pbuffer, 0, sizeof(pbuffer));
     byte_sequence_to_str(pbuffer, fbuffer, bytes_read, 2);
-    printf("%s", pbuffer);
+    bgpsecpg_dbg("%s", pbuffer);
 
     fclose(f);
 }
