@@ -8,6 +8,10 @@
 
 #define PRIV_KEY_BUFFER_SIZE 500
 #define SKI_STR_SIZE 41
+#define FILENAME_WITH_EXT_LEN 44
+#define MAX_FULLPATH_LEN 256
+
+const char *file_ext = ".der";
 
 struct key_vault *load_key_dir(char *filepath) {
     DIR *d = NULL;
@@ -24,10 +28,10 @@ struct key_vault *load_key_dir(char *filepath) {
     
     while ((d_ent = readdir(d)) != NULL) {
         if (d_ent->d_type == DT_REG) {
-            if (strstr(d_ent->d_name, ".der") != NULL
-                && strlen(d_ent->d_name) == 44) {
-                char fullpath[256];
-                memset(fullpath, 0, 256);
+            if (strstr(d_ent->d_name, file_ext) != NULL
+                && strlen(d_ent->d_name) == FILENAME_WITH_EXT_LEN) {
+                char fullpath[MAX_FULLPATH_LEN];
+                memset(fullpath, 0, MAX_FULLPATH_LEN);
                 strcat(fullpath, filepath);
                 if (fullpath[strlen(fullpath) - 1] != '/') {
                     strcat(fullpath, "/");
@@ -79,7 +83,7 @@ struct key *load_key(char *filepath, char *filename) {
 
     memcpy(k->data, &tmp_buff, length);
     k->privkey_len = length;
-    ski_char_to_hex(ski_buffer, (unsigned char *)filename);
+    ski_char_to_hex(ski_buffer, filename);
     memcpy(k->ski, ski_buffer, SKI_SIZE);
 
     return k;
@@ -117,7 +121,7 @@ int chartob16(unsigned char hex_char)
     return -1;
 }
 
-int ski_char_to_hex(uint8_t *buffer, unsigned char *ski)
+int ski_char_to_hex(uint8_t *buffer, char *ski)
 {
     char ch1;
     char ch2;

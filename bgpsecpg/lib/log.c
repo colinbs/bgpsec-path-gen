@@ -14,6 +14,10 @@
 #include "log.h"
 #include "generators.h"
 
+#define MAX_BGPSEC_SEG_STR_LEN 1024
+#define MAX_BYTE_SEQ_STR_LEN 256
+#define MAX_BGPSEC_BIN_PATH_STR_LEN 4096
+
 void bgpsecpg_dbg(const char *frmt, ...)
 {
 	va_list argptr;
@@ -82,7 +86,7 @@ int bgpsec_segment_to_str(
 		struct rtr_signature_seg *sig_seg,
 		struct rtr_secure_path_seg *sec_path)
 {
-	char byte_buffer[256] = {'\0'};
+	char byte_buffer[MAX_BYTE_SEQ_STR_LEN] = {'\0'};
 
 	buffer += sprintf(buffer, "++++++++++++++++++++++++++++++++++++++++\n");
 	buffer += sprintf(buffer, "Signature Segment:\n");
@@ -117,9 +121,10 @@ int bgpsec_segment_to_str(
 void print_bgpsec_path(struct rtr_bgpsec *bgpsec) {
     struct rtr_secure_path_seg *tmp_sec = bgpsec->path;
     struct rtr_signature_seg *tmp_sig = bgpsec->sigs;
+    char buffer[MAX_BGPSEC_SEG_STR_LEN];
+
     for (int i = 0; i < bgpsec->path_len; i++) {
-        char buffer[1024];
-        memset(buffer, 0, 1024);
+        memset(buffer, 0, MAX_BGPSEC_SEG_STR_LEN);
         bgpsec_segment_to_str(buffer, tmp_sig, tmp_sec);
         printf("%s\n", buffer);
         tmp_sig = tmp_sig->next;
@@ -150,10 +155,10 @@ void write_output(char *outdir, struct bgpsec_upd *upd) {
 
 void parse_binary_path(char *readfile) {
     FILE *f = NULL;
-    uint8_t fbuffer[4096];
+    uint8_t fbuffer[MAX_BGPSEC_BIN_PATH_STR_LEN];
     int bytes_read;
 
-    memset(fbuffer, 0, 4096);
+    memset(fbuffer, 0, MAX_BGPSEC_BIN_PATH_STR_LEN);
 
     if (!readfile)
         return;
@@ -162,12 +167,12 @@ void parse_binary_path(char *readfile) {
     if (!f)
         return;
 
-    bytes_read = fread(fbuffer, sizeof(uint8_t), 4096, f);
+    bytes_read = fread(fbuffer, sizeof(uint8_t), MAX_BGPSEC_BIN_PATH_STR_LEN, f);
     if (bytes_read == 0) {
         printf("Error reading file\n");
     }
 
-    char pbuffer[(4096 * 3) + 1];
+    char pbuffer[(MAX_BGPSEC_BIN_PATH_STR_LEN * 3) + 1];
     memset(pbuffer, 0, sizeof(pbuffer));
     byte_sequence_to_str(pbuffer, fbuffer, bytes_read, 2);
     printf("%s", pbuffer);

@@ -148,6 +148,7 @@ int main(int argc, char *argv[])
     /*char *port = "8383";*/
     int exit_val = EXIT_SUCCESS;
     uint32_t origin_as = 0;
+    uint32_t target_as = 1234;
 
     do {
         opt = getopt_long(argc, argv, "ho:a:n:k:r:", long_opts, &option_index);
@@ -216,7 +217,7 @@ int main(int argc, char *argv[])
         goto err;
     }
 
-    bgpsec = generate_bgpsec_data(origin_as, nlri);
+    bgpsec = generate_bgpsec_data(origin_as, target_as, nlri);
     if (!bgpsec) {
         exit_val = EXIT_FAILURE;
         goto err;

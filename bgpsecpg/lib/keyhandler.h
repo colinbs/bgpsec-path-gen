@@ -28,6 +28,6 @@ void key_free(struct key *k);
 
 int chartob16(unsigned char hex_char);
 
-int ski_char_to_hex(uint8_t *buffer, unsigned char *ski);
+int ski_char_to_hex(uint8_t *buffer, char *ski);
 
 #endif

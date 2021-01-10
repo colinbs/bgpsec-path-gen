@@ -19,6 +19,7 @@ struct bgpsec_upd {
 char *generate_bytes(int amount, int mode);
 
 struct rtr_bgpsec *generate_bgpsec_data(uint32_t origin_as,
+                                        uint32_t target_as,
                                         uint32_t nlri);
 
 //uint8_t *generate_bgpsec_attr(struct rtr_secure_path_seg *sec_path,
