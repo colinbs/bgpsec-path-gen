@@ -66,4 +66,6 @@ void prepend_ss(struct signature_seg *ss, struct signature_block *block);
 
 int get_upd_len(struct rtr_bgpsec *bgpsec);
 
+struct rtr_bgpsec_nlri *convert_prefix(char *nlri_str);
+
 #endif

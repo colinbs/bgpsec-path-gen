@@ -25,14 +25,10 @@ char *generate_bytes(int amount, int mode)
 
 struct rtr_bgpsec *generate_bgpsec_data(uint32_t origin_as,
                                         uint32_t target_as,
-                                        uint32_t nlri) {
+                                        struct rtr_bgpsec_nlri *nlri) {
     struct rtr_bgpsec *data = NULL;
-    struct rtr_bgpsec_nlri pfx;
-    pfx.prefix_len          = 24;
-    pfx.prefix.ver          = LRTR_IPV4;
-    pfx.prefix.u.addr4.addr = ntohl(nlri);
 
-    data = rtr_mgr_bgpsec_new(1, 1, 1, origin_as, target_as, pfx);
+    data = rtr_mgr_bgpsec_new(1, 1, 1, origin_as, target_as, *nlri);
     if (!data)
         return NULL;
 

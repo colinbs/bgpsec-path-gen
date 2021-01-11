@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
     struct rtr_bgpsec *bgpsec = NULL;
     struct bgpsec_upd *upd = NULL;
     struct rtr_signature_seg *new_sig = NULL;
-    uint32_t nlri = 0xC0000200;
+    struct rtr_bgpsec_nlri *nlri = NULL;
     struct key_vault *vault = NULL;
     /*char *host = "0.0.0.0";*/
     /*char *port = "8383";*/
@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
             origin_as = atoi(asns[i - 1]);
             break;
         case 'n':
-            // TODO: convert prefix to binary
+            nlri = convert_prefix(optarg);
             break;
         case 'k':
             keydir = optarg;
@@ -204,6 +204,11 @@ int main(int argc, char *argv[])
             exit(EXIT_SUCCESS);
         }
     } while (opt != -1);
+
+    if (!nlri || asn_count == 0) {
+        print_usage();
+        exit(EXIT_SUCCESS);
+    }
 
     if (readfile) {
         parse_binary_path(readfile);
