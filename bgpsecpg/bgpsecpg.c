@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
     uint32_t target_as = 0;
 
     do {
-        opt = getopt_long(argc, argv, "ho:a:n:k:r:", long_opts, &option_index);
+        opt = getopt_long(argc, argv, "ho:a:n:k:r:t:", long_opts, &option_index);
 
         switch (opt) {
         case 'h':
@@ -181,13 +181,9 @@ int main(int argc, char *argv[])
                 asn_count++;
             }
             origin_as = atoi(asns[i - 1]);
-            if (asn_count > 1) {
-                target_as = atoi(asns[i - 2]);
-            } else {
-                target_as = DUMMY_TARGET_AS;
-            }
             break;
         case 'n':
+            // TODO: convert prefix to binary
             break;
         case 'k':
             keydir = optarg;
@@ -200,6 +196,7 @@ int main(int argc, char *argv[])
             break;
         case 't':
             target_as = atoi(optarg);
+            break;
         case -1:
             break;
         default:
@@ -226,7 +223,7 @@ int main(int argc, char *argv[])
         goto err;
     }
 
-    bgpsec = generate_bgpsec_data(origin_as, target_as, nlri);
+    bgpsec = generate_bgpsec_data(origin_as, DUMMY_TARGET_AS, nlri);
     if (!bgpsec) {
         exit_val = EXIT_FAILURE;
         goto err;
@@ -242,6 +239,12 @@ int main(int argc, char *argv[])
         }
         rtr_mgr_bgpsec_append_sec_path_seg(bgpsec, new_path);
 
+        if (i > 0) {
+            bgpsec->target_as = atoi(asns[i - 1]);
+        } else {
+            bgpsec->target_as = target_as;
+        }
+
         struct key *k = vault->keys[i];
         new_sig = NULL;
         rtval = rtr_mgr_bgpsec_generate_signature(bgpsec, k->data, &new_sig);
@@ -251,11 +254,6 @@ int main(int argc, char *argv[])
         }
         memcpy(new_sig->ski, vault->keys[i]->ski, SKI_SIZE);
         rtr_mgr_bgpsec_prepend_sig_seg(bgpsec, new_sig);
-        if (i > 0) {
-            bgpsec->target_as = atoi(asns[i - 1]);
-        } else {
-            bgpsec->target_as = DUMMY_TARGET_AS;
-        }
     }
 
     /*print_bgpsec_path(bgpsec);*/
