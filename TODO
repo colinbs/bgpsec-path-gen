@@ -1,4 +1,3 @@
-- Improve private key selection
 - Add RTR options.
 - Add config file option for RTR settings.
 - Generate BGPsec open messages

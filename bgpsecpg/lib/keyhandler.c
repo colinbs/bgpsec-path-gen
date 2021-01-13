@@ -21,6 +21,7 @@ struct key_vault *load_key_dir(char *filepath) {
     if (!vault)
         return NULL;
     vault->index = 0;
+    vault->amount = 0;
 
     d = opendir(filepath);
     if (!d)
@@ -93,6 +94,7 @@ void add_key_to_vault(struct key_vault *vault, struct key *k) {
     /*vault->keys[vault->index++] = malloc(sizeof(struct key));*/
     /*memcpy(vault->keys[vault->index], k, sizeof(struct key));*/
     vault->keys[vault->index++] = k;
+    vault->amount++;
 }
 
 void vault_free(struct key_vault *vault) {

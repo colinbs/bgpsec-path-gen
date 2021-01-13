@@ -14,6 +14,7 @@ struct key {
 struct key_vault {
     struct key *keys[MAX_KEYS];
     int index;
+    int amount;
 };
 
 struct key_vault *load_key_dir(char *filepath);

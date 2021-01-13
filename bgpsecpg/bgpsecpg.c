@@ -23,11 +23,11 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include "bgpsecpg/lib/generators.h"
-#include "bgpsecpg/lib/bgpsec_structs.h"
-#include "bgpsecpg/lib/config_parser.h"
-#include "bgpsecpg/lib/log.h"
-#include "bgpsecpg/lib/keyhandler.h"
+#include "lib/generators.h"
+#include "lib/bgpsec_structs.h"
+#include "lib/config_parser.h"
+#include "lib/log.h"
+#include "lib/keyhandler.h"
 
 #include "rtrlib/rtrlib.h"
 
@@ -61,6 +61,7 @@ static struct option long_opts[] = {
     {"print", required_argument, 0, 'p'},
     {"print-binary", no_argument, 0, 'b'},
     {"target-as", required_argument, 0, 't'},
+    {"append-output", no_argument, 0, 'd'},
     {0, 0, 0, 0}
 };
 
@@ -70,7 +71,8 @@ static void print_usage(void)
     printf("\n");
     printf("-h, --help\t\tShow this help\n");
     /*printf("-c, --config\t\tSpecify the config file\n");*/
-    printf("-o, --output\t\tName of the output file\n");
+    printf("-o, --output\t\tName of the output file. If used with\n\
+            \t\t--append-output, the output will be appended to the file\n");
     /*printf("-g, --gen-config\tGenerate an example config file named\n\*/
             /*\t\tbgpsecpg.conf.example\n");*/
     printf("-a, --asns\t\tSpecify a comma-separated list of ASNs\n");
@@ -83,6 +85,8 @@ static void print_usage(void)
             \t\tformat\n");
     printf("-t, --target-as\t\tSpeficy the target AS for the last\n\
             \t\tgenerated signature\n");
+    printf("--append-output\t\tAppend output to file specified with\n\
+            \t\t-o/--output instead of overwriting it\n");
 
 }
 
@@ -158,9 +162,10 @@ int main(int argc, char *argv[])
     uint32_t origin_as = 0;
     uint32_t target_as = 0;
     int print_binary = 0;
+    int append_output = 0;
 
     do {
-        opt = getopt_long(argc, argv, "ho:a:n:k:p:bt:", long_opts, &option_index);
+        opt = getopt_long(argc, argv, "ho:a:n:k:p:bt:d", long_opts, &option_index);
 
         switch (opt) {
         case 'h':
@@ -204,6 +209,9 @@ int main(int argc, char *argv[])
         case 't':
             target_as = atoi(optarg);
             break;
+        case 'd':
+            append_output = 1;
+            break;
         case -1:
             break;
         default:
@@ -235,44 +243,55 @@ int main(int argc, char *argv[])
         goto err;
     }
 
-    bgpsec = generate_bgpsec_data(origin_as, DUMMY_TARGET_AS, nlri);
-    if (!bgpsec) {
-        exit_val = EXIT_FAILURE;
-        goto err;
-    }
-
-    for (int i = (asn_count - 1); i >= 0; i--) {
-        struct rtr_secure_path_seg *new_path =
-            rtr_mgr_bgpsec_new_secure_path_seg(1, 0, atoi(asns[i]));
-        if (!new_path) {
-            bgpsecpg_dbg("error generating sec path seg");
+    for (int j = 0; j < 100000; j++) {
+        bgpsec = generate_bgpsec_data(origin_as, DUMMY_TARGET_AS, nlri);
+        if (!bgpsec) {
             exit_val = EXIT_FAILURE;
             goto err;
         }
-        rtr_mgr_bgpsec_append_sec_path_seg(bgpsec, new_path);
 
-        if (i > 0) {
-            bgpsec->target_as = atoi(asns[i - 1]);
-        } else {
-            bgpsec->target_as = target_as;
+        for (int i = (asn_count - 1); i >= 0; i--) {
+            struct rtr_secure_path_seg *new_path =
+                rtr_mgr_bgpsec_new_secure_path_seg(1, 0, atoi(asns[i]));
+            if (!new_path) {
+                bgpsecpg_dbg("error generating sec path seg");
+                exit_val = EXIT_FAILURE;
+                goto err;
+            }
+            rtr_mgr_bgpsec_append_sec_path_seg(bgpsec, new_path);
+
+            if (i > 0) {
+                bgpsec->target_as = atoi(asns[i - 1]);
+            } else {
+                bgpsec->target_as = target_as;
+            }
+
+            struct key *k = vault->keys[rand() % vault->amount];
+            new_sig = NULL;
+            rtval = rtr_mgr_bgpsec_generate_signature(bgpsec, k->data, &new_sig);
+            if (rtval != RTR_BGPSEC_SUCCESS) {
+                exit_val = EXIT_FAILURE;
+                goto err;
+            }
+            memcpy(new_sig->ski, vault->keys[i]->ski, SKI_SIZE);
+            rtr_mgr_bgpsec_prepend_sig_seg(bgpsec, new_sig);
         }
 
-        struct key *k = vault->keys[i];
-        new_sig = NULL;
-        rtval = rtr_mgr_bgpsec_generate_signature(bgpsec, k->data, &new_sig);
-        if (rtval != RTR_BGPSEC_SUCCESS) {
-            exit_val = EXIT_FAILURE;
-            goto err;
+        upd = generate_bgpsec_upd(bgpsec);
+
+        if (outfile) {
+            write_output(outfile, upd, append_output);
         }
-        memcpy(new_sig->ski, vault->keys[i]->ski, SKI_SIZE);
-        rtr_mgr_bgpsec_prepend_sig_seg(bgpsec, new_sig);
-    }
 
-    /*print_bgpsec_path(bgpsec);*/
-    upd = generate_bgpsec_upd(bgpsec);
-
-    if (outfile) {
-        write_output(outfile, upd);
+        if (bgpsec) {
+            rtr_mgr_bgpsec_free(bgpsec);
+            bgpsec = NULL;
+        }
+        if (upd) {
+            free(upd->upd);
+            free(upd);
+            upd = NULL;
+        }
     }
 
 err:
@@ -296,6 +315,9 @@ err:
     if (upd) {
         free(upd->upd);
         free(upd);
+    }
+    if (nlri) {
+        rtr_mgr_bgpsec_nlri_free(nlri);
     }
 
     return exit_val;

@@ -156,6 +156,8 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     new_upd->upd = start;
     new_upd->len = ntohs(upd_len);
 
+    free(mp_buffer);
+
     return new_upd;
 }
 

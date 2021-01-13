@@ -131,7 +131,7 @@ struct rtr_bgpsec_nlri *convert_prefix(char *nlri_str) {
     char *tok = "/";
     char *ip_str = NULL;
 
-    nlri = malloc(sizeof(struct bgpsec_nlri));
+    nlri = rtr_mgr_bgpsec_nlri_new();
     if (!nlri)
         return NULL;
 
