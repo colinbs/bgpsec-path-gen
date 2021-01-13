@@ -2,7 +2,7 @@ project(BGPSECPG C)
 
 set(PROJECT_DESCRIPTION "Generator for BGPsec_PATH attributes")
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8.12)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -std=gnu99 -lrtr")
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
