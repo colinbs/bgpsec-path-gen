@@ -1,4 +1,4 @@
 - Improve private key selection
 - Add RTR options.
 - Add config file option for RTR settings.
-- Check for prefix parsing
+- Generate BGPsec open messages

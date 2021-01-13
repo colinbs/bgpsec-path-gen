@@ -32,4 +32,8 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec);
 struct rtr_signature_seg *generate_signature(
                             struct rtr_bgpsec *data,
                             struct key *priv_key);
+
+uint16_t generate_mp_attr(uint8_t *buffer,
+                          uint8_t *nexthop,
+                          struct rtr_bgpsec *bgpsec);
 #endif

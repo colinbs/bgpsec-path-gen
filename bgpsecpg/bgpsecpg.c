@@ -58,14 +58,15 @@ static struct option long_opts[] = {
     {"keys", required_argument, 0, 'k'},
     /*{"host", required_argument, 0, '\0'},*/
     /*{"port", required_argument, 0, '\0'},*/
-    {"read", required_argument, 0, 'r'},
+    {"print", required_argument, 0, 'p'},
+    {"print-binary", no_argument, 0, 'b'},
     {"target-as", required_argument, 0, 't'},
     {0, 0, 0, 0}
 };
 
 static void print_usage(void)
 {
-    printf("Usage: bgpsecpg [OPTION]...\n");
+    printf("Usage: bgpsecpg [OPTIONS]...\n");
     printf("\n");
     printf("-h, --help\t\tShow this help\n");
     /*printf("-c, --config\t\tSpecify the config file\n");*/
@@ -76,10 +77,12 @@ static void print_usage(void)
     printf("-n, --nlri\t\tSpecify the NLRI\n");
     printf("-k, --keys\t\tPath to the directory containing the public\n\
             \t\tand private router keys\n");
-    printf("-r, --read\t\tPrint a binary BGPsec_PATH in human readable\n\
-            \t\tform\n");
+    printf("-p, --print\t\tPrint a binary BGPsec_PATH in human readable\n\
+            \t\tformat\n");
+    printf("-b, --print-binary\tPrint a binary BGPsec_PATH in hexadecimal\n\
+            \t\tformat\n");
     printf("-t, --target-as\t\tSpeficy the target AS for the last\n\
-            generated signature\n");
+            \t\tgenerated signature\n");
 
 }
 
@@ -154,9 +157,10 @@ int main(int argc, char *argv[])
     int exit_val = EXIT_SUCCESS;
     uint32_t origin_as = 0;
     uint32_t target_as = 0;
+    int print_binary = 0;
 
     do {
-        opt = getopt_long(argc, argv, "ho:a:n:k:r:t:", long_opts, &option_index);
+        opt = getopt_long(argc, argv, "ho:a:n:k:p:bt:", long_opts, &option_index);
 
         switch (opt) {
         case 'h':
@@ -191,8 +195,11 @@ int main(int argc, char *argv[])
         case 'o':
             outfile = optarg;
             break;
-        case 'r':
+        case 'p':
             readfile = optarg;
+            break;
+        case 'b':
+            print_binary = 1;
             break;
         case 't':
             target_as = atoi(optarg);
@@ -205,13 +212,13 @@ int main(int argc, char *argv[])
         }
     } while (opt != -1);
 
-    if (!nlri || asn_count == 0) {
-        print_usage();
+    if (readfile) {
+        parse_bgpsec_update(readfile, print_binary);
         exit(EXIT_SUCCESS);
     }
 
-    if (readfile) {
-        parse_binary_path(readfile);
+    if (!nlri || asn_count == 0) {
+        print_usage();
         exit(EXIT_SUCCESS);
     }
 

@@ -12,7 +12,8 @@
 #define BGPSEC_UPD_NLRI_OFFSET 36
 #define BGPSEC_UPD_PATH_OFFSET 51
 #define BGPSEC_UPD_SIZE 4196
-#define BGPSEC_UPD_HEADER_SIZE 51
+#define BGPSEC_UPD_HEADER_SIZE 23
+#define BGPSEC_UPD_HEADER_REST_SIZE 11
 
 static uint8_t bgpsec_upd_header[] = {
     /* Marker */
@@ -25,7 +26,10 @@ static uint8_t bgpsec_upd_header[] = {
     /* Withdrawn Routes Length */
     0x00, 0x00,
     /* Total Path Attribute Length */
-    0x00, 0x87,
+    0x00, 0x00,
+};
+
+static uint8_t bgpsec_upd_header_mp[] = {
     /* MP_REACH_NLRI */
     /* Flags */
     0x90,
@@ -38,11 +42,14 @@ static uint8_t bgpsec_upd_header[] = {
     /* SAFI */
     0x01,
     /* Next hop network address */
-    0x04, 0xAC, 0x12, 0x00, 0x02,
+    0x00, 0x00, 0x00, 0x00, 0x00,
     /* Number of Subnetwork points of attachment (SNPA) */
     0x00,
     /* NLRI */
-    0x18, 0x0E, 0x00, 0x02,
+    0x00, 0x00, 0x00, 0x00,
+};
+
+static uint8_t bgpsec_upd_header_rest[] = {
     /* ORIGIN */
     /* Flags */
     0x40,

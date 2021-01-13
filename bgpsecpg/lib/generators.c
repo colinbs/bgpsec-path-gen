@@ -6,6 +6,8 @@
 #include "keyhandler.h"
 #include "bgpsec_structs.h"
 
+#define MP_BUFFER_SIZE 64
+
 char *generate_bytes(int amount, int mode)
 {
     char *bytes = malloc(amount);
@@ -52,14 +54,18 @@ struct rtr_signature_seg *generate_signature(
 struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     struct bgpsec_upd *new_upd = malloc(sizeof(struct bgpsec_upd));
     uint8_t *upd = NULL;
-    uint16_t total_len = 0;
-    uint8_t *total_len_p = NULL;
+    uint16_t total_attr_len = 0;
+    uint8_t *total_attr_len_p = NULL;
     struct rtr_secure_path_seg *sec = bgpsec->path;
     struct rtr_signature_seg *sig = bgpsec->sigs;
     uint16_t sig_block_len = 0;
     uint8_t *sig_block_len_p = NULL;
     uint8_t *start = NULL;
     uint16_t tmp16 = 0;
+    uint8_t *mp_buffer;
+    uint16_t mp_i = 0;
+    uint16_t upd_len = 0;
+    uint8_t nexthop[4] = { 0xAC, 0x12, 0x00, 0x02 };
 
     if (!new_upd)
         return NULL;
@@ -73,18 +79,29 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     }
     start = upd;
 
+    /* Build MP_REACH_NLRI attribute */
+    mp_buffer = malloc(MP_BUFFER_SIZE);
+    if (!mp_buffer)
+        return NULL;
+    mp_i = generate_mp_attr(mp_buffer, nexthop, bgpsec);
+
     memcpy(upd, bgpsec_upd_header, BGPSEC_UPD_HEADER_SIZE);
     upd += BGPSEC_UPD_HEADER_SIZE;
+    memcpy(upd, mp_buffer, mp_i);
+    upd += mp_i;
+    memcpy(upd, bgpsec_upd_header_rest, BGPSEC_UPD_HEADER_REST_SIZE);
+    upd += BGPSEC_UPD_HEADER_REST_SIZE;
 
+    /* Build BGPsec PATH attribute */
     *upd = 0x90; // Flags
     upd += 1;
     *upd = 0x21; // Type Code
     upd += 1;
 
-    total_len_p = upd; // Save position for later
+    total_attr_len_p = upd; // Save position for later
     upd += 2;
 
-    tmp16 = ntohs(bgpsec->path_len * 6);
+    tmp16 = ntohs((bgpsec->path_len * 6) + 2);
     memcpy(upd, &tmp16, 2); // Secure Path Length
     upd += 2;
 
@@ -100,6 +117,8 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     }
 
     sig_block_len_p = upd; // Save position for later
+    upd += 2;
+    sig_block_len += 2;
     
     *upd = bgpsec->alg;
     upd += 1;
@@ -113,7 +132,7 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
         upd += 2;
         memcpy(upd, sig->signature, sig->sig_len);
         upd += sig->sig_len;
-        sig_block_len += 20 + 2 + sig->sig_len;
+        sig_block_len += SKI_SIZE + 2 + sig->sig_len;
         sig = sig->next;
     }
 
@@ -121,14 +140,65 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     tmp16 = ntohs(sig_block_len);
     memcpy(upd, &tmp16, 2);
 
-    total_len += 51 + 6 + (bgpsec->path_len * 6);
-    total_len += sig_block_len;
+    total_attr_len += 6 + (bgpsec->path_len * 6);
+    total_attr_len += sig_block_len;
 
-    upd = total_len_p;
-    tmp16 = ntohs(total_len);
+    upd = total_attr_len_p;
+    tmp16 = ntohs(total_attr_len);
     memcpy(upd, &tmp16, 2);
 
+    upd_len = ntohs(BGPSEC_UPD_HEADER_SIZE +
+                    mp_i +
+                    BGPSEC_UPD_HEADER_REST_SIZE +
+                    total_attr_len);
+    memcpy(&start[16], &upd_len, 2);
+
     new_upd->upd = start;
-    new_upd->len = total_len;
+    new_upd->len = ntohs(upd_len);
+
     return new_upd;
+}
+
+uint16_t generate_mp_attr(uint8_t *buffer,
+                          uint8_t *nexthop,
+                          struct rtr_bgpsec *bgpsec) {
+    uint16_t mp_i = 0;
+    uint16_t tmp = 0;
+    uint8_t nlri_byte_len = (bgpsec->nlri.prefix_len + 7) / 8;
+
+    buffer[mp_i++] = 0x90; // Flags
+    buffer[mp_i++] = 0x0E; // Type Code
+    buffer[mp_i++] = 0x00; // Length (temp)
+    buffer[mp_i++] = 0x00; // Length (temp)
+    tmp = ntohs(bgpsec->nlri.prefix.ver + 1);
+    memcpy(&buffer[mp_i], &tmp, 2); // AFI
+    mp_i += 2;
+    buffer[mp_i++] = 0x01; // SAFI
+    if (bgpsec->nlri.prefix.ver == LRTR_IPV4) {
+        buffer[mp_i++] = 0x04; // Nexthop Length
+        memcpy(&buffer[mp_i], nexthop, 4); // IPv4 Nexthop
+        mp_i += 4;
+    } else {
+        buffer[mp_i++] = 0x20; // Nexthop Length
+        memcpy(&buffer[mp_i], nexthop, 32); // IPv6 Nexthop
+        mp_i += 32;
+    }
+    buffer[mp_i++] = 0x00; // SNPA
+    buffer[mp_i++] = bgpsec->nlri.prefix_len; // NLRI Length
+    if (bgpsec->nlri.prefix.ver == LRTR_IPV4) {
+        // IPv4 NLRI
+        uint32_t addr = htonl(bgpsec->nlri.prefix.u.addr4.addr);
+        memcpy(&buffer[mp_i], &addr, nlri_byte_len);
+        mp_i += nlri_byte_len;
+    } else {
+        // IPv6 NLRI
+        for (int i = (nlri_byte_len - 1); i >= 0; i--) {
+            buffer[mp_i + i] = bgpsec->nlri.prefix.u.addr6.addr[i];
+        }
+        mp_i += nlri_byte_len;
+    }
+    tmp = ntohs(mp_i);
+    memcpy(&buffer[2], &tmp, 2); // Total Length
+
+    return mp_i;
 }

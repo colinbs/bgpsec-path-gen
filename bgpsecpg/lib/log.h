@@ -27,7 +27,7 @@ void print_bgpsec_path(struct rtr_bgpsec *bgpsec);
 
 void write_output(char *outdir, struct bgpsec_upd *upd);
 
-void parse_binary_path(char *readfile);
+void parse_bgpsec_update(char *readfile, int print_binary);
 
 #define BGPSECPG_DBG(fmt, ...) bgpsecpg_dbg("BGPSECPG: " fmt, ## __VA_ARGS__)
 #define BGPSECPG_DBG1(a) bgpsecpg_dbg("BGPSECPG: " a)
