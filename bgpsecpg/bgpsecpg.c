@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
         goto err;
     }
 
-    for (int j = 0; j < 100000; j++) {
+    for (int j = 0; j < 5; j++) {
         bgpsec = generate_bgpsec_data(origin_as, DUMMY_TARGET_AS, nlri);
         if (!bgpsec) {
             exit_val = EXIT_FAILURE;

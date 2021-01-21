@@ -5,6 +5,7 @@
 #include "pdus.h"
 #include "keyhandler.h"
 #include "bgpsec_structs.h"
+#include "log.h"
 
 #define MP_BUFFER_SIZE 64
 
@@ -56,6 +57,7 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     uint8_t *upd = NULL;
     uint16_t total_attr_len = 0;
     uint8_t *total_attr_len_p = NULL;
+    uint16_t path_attr_len = 0;
     struct rtr_secure_path_seg *sec = bgpsec->path;
     struct rtr_signature_seg *sig = bgpsec->sigs;
     uint16_t sig_block_len = 0;
@@ -144,7 +146,7 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     total_attr_len += sig_block_len;
 
     upd = total_attr_len_p;
-    tmp16 = ntohs(total_attr_len);
+    tmp16 = ntohs(total_attr_len - 4); // Subtract Flags, Type Code and Length Fields
     memcpy(upd, &tmp16, 2);
 
     upd_len = ntohs(BGPSEC_UPD_HEADER_SIZE +
@@ -152,6 +154,9 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
                     BGPSEC_UPD_HEADER_REST_SIZE +
                     total_attr_len);
     memcpy(&start[16], &upd_len, 2);
+
+    path_attr_len = ntohs(htons(upd_len) - BGPSEC_UPD_HEADER_SIZE);
+    memcpy(&start[21], &path_attr_len, 2);
 
     new_upd->upd = start;
     new_upd->len = ntohs(upd_len);
@@ -199,7 +204,7 @@ uint16_t generate_mp_attr(uint8_t *buffer,
         }
         mp_i += nlri_byte_len;
     }
-    tmp = ntohs(mp_i);
+    tmp = ntohs(mp_i - 4); // Subtract Flags, Type Code and Length Fields
     memcpy(&buffer[2], &tmp, 2); // Total Length
 
     return mp_i;
