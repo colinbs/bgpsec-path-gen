@@ -382,6 +382,9 @@ int main(int argc, char *argv[])
             rtr_mgr_bgpsec_nlri_free(re->nlri);
             free(re);
             re = NULL;
+        } else if (nlri) {
+            rtr_mgr_bgpsec_nlri_free(nlri);
+            nlri = NULL;
         }
 
         /* only increment the update count if the maximum option is set */
