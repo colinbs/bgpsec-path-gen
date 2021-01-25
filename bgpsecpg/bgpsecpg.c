@@ -320,9 +320,11 @@ int main(int argc, char *argv[])
     }
 
     do {
-        memcpy(asns, re->as_path, sizeof(re->as_path));
-        nlri = re->nlri;
-        asn_count = re->as_path_len;
+        if (rib_f) {
+            memcpy(asns, re->as_path, sizeof(re->as_path));
+            nlri = re->nlri;
+            asn_count = re->as_path_len;
+        }
 
         bgpsec = generate_bgpsec_data(origin_as, DUMMY_TARGET_AS, nlri);
         if (!bgpsec) {
