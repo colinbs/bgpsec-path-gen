@@ -28,11 +28,11 @@
 #include "lib/config_parser.h"
 #include "lib/log.h"
 #include "lib/keyhandler.h"
+#include "lib/rib.h"
 
 #include "rtrlib/rtrlib.h"
 
 #define ASN_MAX_LEN     11
-#define MAX_ASN_COUNT   1000
 #define DUMMY_TARGET_AS 65445
 
 enum return_vals {
@@ -62,6 +62,8 @@ static struct option long_opts[] = {
     {"print-binary", no_argument, 0, 'b'},
     {"target-as", required_argument, 0, 't'},
     {"append-output", no_argument, 0, 'd'},
+    {"rib-dump", required_argument, 0, 'r'},
+    {"maximum", required_argument, 0, 'm'},
     {0, 0, 0, 0}
 };
 
@@ -69,32 +71,33 @@ static void print_usage(void)
 {
     printf("Usage: bgpsecpg [OPTIONS]...\n");
     printf("\n");
-    printf("-h, --help\t\tShow this help\n");
+    printf("  -h, --help\t\tshow this help.\n");
     /*printf("-c, --config\t\tSpecify the config file\n");*/
-    printf("-o, --output\t\tName of the output file. If used with\n\
-            \t\t--append-output, the output will be appended to the file\n");
+    printf("  -o, --output\t\tname of the output file. If used with together -d the\n\
+            \t\t  output will be appended to the file.\n");
     /*printf("-g, --gen-config\tGenerate an example config file named\n\*/
             /*\t\tbgpsecpg.conf.example\n");*/
-    printf("-a, --asns\t\tSpecify a comma-separated list of ASNs\n");
-    printf("-n, --nlri\t\tSpecify the NLRI\n");
-    printf("-k, --keys\t\tPath to the directory containing the public\n\
-            \t\tand private router keys\n");
-    printf("-p, --print\t\tPrint a binary BGPsec_PATH in human readable\n\
-            \t\tformat\n");
-    printf("-b, --print-binary\tPrint a binary BGPsec_PATH in hexadecimal\n\
-            \t\tformat\n");
-    printf("-t, --target-as\t\tSpeficy the target AS for the last\n\
-            \t\tgenerated signature\n");
-    printf("--append-output\t\tAppend output to file specified with\n\
-            \t\t-o/--output instead of overwriting it\n");
-
+    printf("  -a, --asns\t\tspecify a comma-separated list of ASNs. Cannot be used\n\
+            \t\t  together with -r.\n");
+    printf("  -n, --nlri\t\tspecify the NLRI. Cannot be used together with -r.\n");
+    printf("  -k, --keys\t\tpath to the directory containing the public and private\n\
+            \t\t  router keys.\n");
+    printf("  -p, --print\t\tprint a binary BGPsec_PATH in human readable format.\n");
+    printf("  -b, --print-binary\tprint a binary BGPsec_PATH in hexadecimal format.\n");
+    printf("  -t, --target-as\tspeficy the target AS for the last generated signature.\n");
+    printf("  -d, --append-output\tappend output to file specified with -o instead of\n\
+            \t\t  overwriting it.\n");
+    printf("  -r, --rib-dump\ttake a RIB dump as input for ASNs and NLRI. Cannot be\n\
+            \t\t  used together with -a or -n.\n");
+    printf("  -m, --maximum\t\tmaximum updates that should be generated. Default is\n\
+            \t\t  unlimited.\n");
 }
 
 static int establish_rtr_connection(struct master_conf **cnf) {
     struct master_conf *conf = malloc(sizeof(struct master_conf));
     conf->tr_tcp = malloc(sizeof(struct tr_socket));
-    char tcp_host[] = "0.0.0.0";
-    char tcp_port[] = "8383";
+    char tcp_host[] = "spki.csames.de";
+    char tcp_port[] = "8484";
 
     conf->tcp_config = malloc(sizeof(struct tr_tcp_config));
     conf->tcp_config->host = tcp_host;
@@ -150,6 +153,7 @@ int main(int argc, char *argv[])
     char *keydir = NULL;
     char *outfile = NULL;
     char *readfile = NULL;
+    char *ribfile = NULL;
     struct master_conf *conf = NULL;
     struct rtr_bgpsec *bgpsec = NULL;
     struct bgpsec_upd *upd = NULL;
@@ -163,9 +167,16 @@ int main(int argc, char *argv[])
     uint32_t target_as = 0;
     int print_binary = 0;
     int append_output = 0;
+    FILE *rib_f = NULL;
+    struct rib_entry *re = NULL;
+    char *error_reason = NULL;
+    int maximum = 0;
+    int maximum_set = 0;
+    int upd_count = -1;
+    FILE *output_f = NULL;
 
     do {
-        opt = getopt_long(argc, argv, "ho:a:n:k:p:bt:d", long_opts, &option_index);
+        opt = getopt_long(argc, argv, "ho:a:n:k:p:bt:dr:m:", long_opts, &option_index);
 
         switch (opt) {
         case 'h':
@@ -212,6 +223,13 @@ int main(int argc, char *argv[])
         case 'd':
             append_output = 1;
             break;
+        case 'r':
+            ribfile = optarg;
+            break;
+        case 'm':
+            maximum = atoi(optarg);
+            maximum_set = 1;
+            break;
         case -1:
             break;
         default:
@@ -225,27 +243,90 @@ int main(int argc, char *argv[])
         exit(EXIT_SUCCESS);
     }
 
-    if (!nlri || asn_count == 0) {
+    if (!keydir) {
+        printf("\nKey directory must be specified with -k/--keys\n\n");
         print_usage();
-        exit(EXIT_SUCCESS);
+        exit(EXIT_FAILURE);
+    }
+
+    if ((nlri || asn_count > 0) && ribfile) {
+        if (nlri != NULL)
+            printf("\nCannot use -n/--nlri in combination with -r/--rib-dump\n\n");
+        else if (asn_count != 0)
+            printf("\nCannot use -a/--asns in combination with -r/--rib-dump\n\n");
+        print_usage();
+        exit(EXIT_FAILURE);
+    }
+
+    if ((!nlri || asn_count == 0) && !ribfile) {
+        if (!nlri)
+            printf("\nNLRI must be specified with -n/--nlri\n\n");
+        else if (asn_count == 0)
+            printf("\nASNs must be specified with -a/--asns\n\n");
+        print_usage();
+        exit(EXIT_FAILURE);
+    }
+
+    if (maximum_set && maximum < 1) {
+        printf("\nMaximum must be greater than zero\n\n");
+        print_usage();
+        exit(EXIT_FAILURE);
+    } else if (maximum_set) {
+        upd_count = 0;
     }
 
     /* establish the RTR connection */
     rtval = establish_rtr_connection(&conf);
     if (rtval == ERROR) {
+        error_reason = "Error: Could not establish a connection to SPKI cache";
         exit_val = EXIT_FAILURE;
         goto err;
     }
 
     vault = load_key_dir(keydir);
     if (!vault) {
+        error_reason = "Error: Could not open key directory";
         exit_val = EXIT_FAILURE;
         goto err;
     }
 
-    for (int j = 0; j < 5; j++) {
+    if (outfile) {
+        if (append_output) {
+            output_f = fopen(outfile, "ab");
+        } else {
+            output_f = fopen(outfile, "wb");
+        }
+        if (!output_f) {
+            bgpsecpg_dbg("Error opening output file");
+            exit_val = EXIT_FAILURE;
+            goto err;
+        }
+    }
+
+    if (ribfile) {
+        rib_f = fopen(ribfile, "r");
+        if (!rib_f) {
+            error_reason = "Error: Could not open RIB dump";
+            exit_val = EXIT_FAILURE;
+            goto err;
+        }
+
+        re = get_next_rib_entry(rib_f);
+        if (!re) {
+            error_reason = "Error: Could not parse RIB dump";
+            exit_val = EXIT_FAILURE;
+            goto err;
+        }
+    }
+
+    do {
+        memcpy(asns, re->as_path, sizeof(re->as_path));
+        nlri = re->nlri;
+        asn_count = re->as_path_len;
+
         bgpsec = generate_bgpsec_data(origin_as, DUMMY_TARGET_AS, nlri);
         if (!bgpsec) {
+            bgpsecpg_dbg("Error while generating bgpsec_data");
             exit_val = EXIT_FAILURE;
             goto err;
         }
@@ -254,7 +335,7 @@ int main(int argc, char *argv[])
             struct rtr_secure_path_seg *new_path =
                 rtr_mgr_bgpsec_new_secure_path_seg(1, 0, atoi(asns[i]));
             if (!new_path) {
-                bgpsecpg_dbg("error generating sec path seg");
+                bgpsecpg_dbg("Error while generating secure path segment");
                 exit_val = EXIT_FAILURE;
                 goto err;
             }
@@ -270,6 +351,7 @@ int main(int argc, char *argv[])
             new_sig = NULL;
             rtval = rtr_mgr_bgpsec_generate_signature(bgpsec, k->data, &new_sig);
             if (rtval != RTR_BGPSEC_SUCCESS) {
+                bgpsecpg_dbg("Error while generating signature");
                 exit_val = EXIT_FAILURE;
                 goto err;
             }
@@ -279,20 +361,31 @@ int main(int argc, char *argv[])
 
         upd = generate_bgpsec_upd(bgpsec);
 
-        if (outfile) {
-            write_output(outfile, upd, append_output);
+        if (output_f) {
+            write_output(output_f, upd);
         }
 
         if (bgpsec) {
             rtr_mgr_bgpsec_free(bgpsec);
             bgpsec = NULL;
         }
+
         if (upd) {
             free(upd->upd);
             free(upd);
             upd = NULL;
         }
-    }
+
+        if (re) {
+            rtr_mgr_bgpsec_nlri_free(re->nlri);
+            free(re);
+            re = NULL;
+        }
+
+        /* only increment the update count if the maximum option is set */
+        if (maximum_set)
+            upd_count++;
+    } while((re = get_next_rib_entry(rib_f)) && upd_count < maximum);
 
 err:
     if (conf) {
@@ -316,8 +409,20 @@ err:
         free(upd->upd);
         free(upd);
     }
-    if (nlri) {
-        rtr_mgr_bgpsec_nlri_free(nlri);
+    if (rib_f) {
+        fclose(rib_f);
+    }
+    if (output_f) {
+        fclose(output_f);
+    }
+    if (re) {
+        rtr_mgr_bgpsec_nlri_free(re->nlri);
+        free(re);
+    }
+
+    if (error_reason) {
+        bgpsecpg_dbg("%s", error_reason);
+        printf("%s\n", error_reason);
     }
 
     return exit_val;

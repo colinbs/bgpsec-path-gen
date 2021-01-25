@@ -13,13 +13,13 @@
 
 #include "log.h"
 #include "generators.h"
-#include "pdus.h"
 
 #define BGPSECPG_PREFIX_STR "BGPSEC Path Gen:"
 
 #define MAX_BGPSEC_SEG_STR_LEN 1024
 #define MAX_BYTE_SEQ_STR_LEN 256
 #define MAX_BGPSEC_BIN_PATH_STR_LEN (4096 * 4)
+#define BGPSEC_UPD_HEADER_SIZE 23
 
 void bgpsecpg_dbg(const char *frmt, ...)
 {
@@ -142,31 +142,16 @@ void print_bgpsec_path(struct rtr_bgpsec *bgpsec) {
     }
 }
 
-void write_output(char *outdir, struct bgpsec_upd *upd, int append) {
-    FILE *output_f = NULL;
+void write_output(FILE *output_f, struct bgpsec_upd *upd) {
     int bytes_written;
-    char *options = NULL;
 
-    if (!upd)
+    if (!upd || !output_f)
         return;
-
-    if (append == 1) {
-        options = "ab";
-    } else {
-        options = "wb";
-    }
-
-    output_f = fopen(outdir, options);
-    if (!output_f) {
-        bgpsecpg_dbg("Error opening file");
-        return;
-    }
 
     bytes_written = fwrite(upd->upd, sizeof(uint8_t), upd->len, output_f);
-    fclose(output_f);
 
     if (bytes_written == upd->len) {
-        bgpsecpg_dbg("File successfully written");
+        bgpsecpg_dbg("Update (len: %d) successfully written", bytes_written);
     } else {
         bgpsecpg_dbg("Error writing file");
     }
@@ -175,7 +160,6 @@ void write_output(char *outdir, struct bgpsec_upd *upd, int append) {
 void parse_bgpsec_update(char *readfile, int print_binary) {
     FILE *f = NULL;
     uint8_t fbuffer[MAX_BGPSEC_BIN_PATH_STR_LEN];
-    int bytes_read;
     long end;
 
     memset(fbuffer, 0, MAX_BGPSEC_BIN_PATH_STR_LEN);

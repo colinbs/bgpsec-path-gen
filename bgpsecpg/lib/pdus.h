@@ -29,25 +29,25 @@ static uint8_t bgpsec_upd_header[] = {
     0x00, 0x00,
 };
 
-static uint8_t bgpsec_upd_header_mp[] = {
-    /* MP_REACH_NLRI */
-    /* Flags */
-    0x90,
-    /* Type Code */
-    0x0E,
-    /* Length */
-    0x00, 0x0D,
-    /* AFI */
-    0x00, 0x01,
-    /* SAFI */
-    0x01,
-    /* Next hop network address */
-    0x00, 0x00, 0x00, 0x00, 0x00,
-    /* Number of Subnetwork points of attachment (SNPA) */
-    0x00,
-    /* NLRI */
-    0x00, 0x00, 0x00, 0x00,
-};
+//static uint8_t bgpsec_upd_header_mp[] = {
+//    /* MP_REACH_NLRI */
+//    /* Flags */
+//    0x90,
+//    /* Type Code */
+//    0x0E,
+//    /* Length */
+//    0x00, 0x0D,
+//    /* AFI */
+//    0x00, 0x01,
+//    /* SAFI */
+//    0x01,
+//    /* Next hop network address */
+//    0x00, 0x00, 0x00, 0x00, 0x00,
+//    /* Number of Subnetwork points of attachment (SNPA) */
+//    0x00,
+//    /* NLRI */
+//    0x00, 0x00, 0x00, 0x00,
+//};
 
 static uint8_t bgpsec_upd_header_rest[] = {
     /* ORIGIN */

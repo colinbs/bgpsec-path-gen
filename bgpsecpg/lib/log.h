@@ -26,7 +26,7 @@ int bgpsec_segment_to_str(
 
 void print_bgpsec_path(struct rtr_bgpsec *bgpsec);
 
-void write_output(char *outdir, struct bgpsec_upd *upd, int append);
+void write_output(FILE *output_f, struct bgpsec_upd *upd);
 
 void parse_bgpsec_update(char *readfile, int print_binary);
 

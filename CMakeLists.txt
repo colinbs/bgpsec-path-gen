@@ -13,15 +13,15 @@ include_directories(.)
 
 add_subdirectory(bgpsecpg)
 
-set(BGPSECPG_SRC bgpsecpg/bgpsecpg.c bgpsecpg/lib/bgpsec_structs.c bgpsecpg/lib/generators.c bgpsecpg/lib/config_parser.c bgpsecpg/lib/log.c bgpsecpg/lib/keyhandler.c)
+set(BGPSECPG_SRC bgpsecpg/bgpsecpg.c bgpsecpg/lib/bgpsec_structs.c bgpsecpg/lib/generators.c bgpsecpg/lib/config_parser.c bgpsecpg/lib/log.c bgpsecpg/lib/keyhandler.c bgpsecpg/lib/rib.c)
 
 # Create shared library
 add_library(bgpsecpg SHARED ${BGPSECPG_SRC})
 target_link_libraries(bgpsecpg ${BGPSECPG_LINK})
 
 # Create static library
-add_library(bgpsecpg_static STATIC ${BGPSECPG_SRC})
-target_link_libraries(bgpsecpg_static ${BGPSECPG_LINK})
+# add_library(bgpsecpg_static STATIC ${BGPSECPG_SRC})
+# target_link_libraries(bgpsecpg_static ${BGPSECPG_LINK})
 
 # Testing
 add_subdirectory(tests)
