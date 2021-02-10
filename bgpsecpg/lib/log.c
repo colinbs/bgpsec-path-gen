@@ -150,11 +150,11 @@ void write_output(FILE *output_f, struct bgpsec_upd *upd) {
 
     bytes_written = fwrite(upd->upd, sizeof(uint8_t), upd->len, output_f);
 
-    if (bytes_written == upd->len) {
-        bgpsecpg_dbg("Update (len: %d) successfully written", bytes_written);
-    } else {
-        bgpsecpg_dbg("Error writing file");
-    }
+    /*if (bytes_written == upd->len) {*/
+        /*bgpsecpg_dbg("Update (len: %d) successfully written", bytes_written);*/
+    /*} else {*/
+        /*bgpsecpg_dbg("Error writing file");*/
+    /*}*/
 }
 
 void parse_bgpsec_update(char *readfile, int print_binary) {

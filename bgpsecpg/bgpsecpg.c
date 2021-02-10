@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <arpa/inet.h>
 
 #include "lib/generators.h"
 #include "lib/bgpsec_structs.h"
@@ -147,7 +148,7 @@ int main(int argc, char *argv[])
     int rtval = 0;
     int i;
     const char *tok = {","};
-    char asns[MAX_ASN_COUNT][ASN_MAX_LEN];
+    uint32_t asns[MAX_ASN_COUNT] = {0};
     int asn_count = 0;
     char *sub = NULL;
     char *keydir = NULL;
@@ -174,6 +175,7 @@ int main(int argc, char *argv[])
     int maximum_set = 0;
     int upd_count = -1;
     FILE *output_f = NULL;
+    uint8_t pcount = 1;
 
     do {
         opt = getopt_long(argc, argv, "ho:a:n:k:p:bt:dr:m:", long_opts, &option_index);
@@ -196,11 +198,11 @@ int main(int argc, char *argv[])
             i = 0;
             sub = strtok(optarg, tok);
             while (sub) {
-                memcpy(asns[i++], sub, strlen(sub));
+                asns[i++] = atoi(sub);
                 sub = strtok(NULL, tok);
                 asn_count++;
             }
-            origin_as = atoi(asns[i - 1]);
+            origin_as = asns[i - 1];
             break;
         case 'n':
             nlri = convert_prefix(optarg);
@@ -327,24 +329,34 @@ int main(int argc, char *argv[])
         }
 
         bgpsec = generate_bgpsec_data(origin_as, DUMMY_TARGET_AS, nlri);
+
         if (!bgpsec) {
             bgpsecpg_dbg("Error while generating bgpsec_data");
             exit_val = EXIT_FAILURE;
             goto err;
         }
 
-        for (int i = (asn_count - 1); i >= 0; i--) {
+        for (int i = (asn_count - 1); i >= 0; i -= pcount) {
+            if (rib_f) {
+                pcount = get_pcount(re, i);
+                if (pcount == 0) {
+                    bgpsecpg_dbg("Error while getting pcount");
+                    exit_val = EXIT_FAILURE;
+                    goto err;
+                }
+            }
+
             struct rtr_secure_path_seg *new_path =
-                rtr_mgr_bgpsec_new_secure_path_seg(1, 0, atoi(asns[i]));
+                rtr_mgr_bgpsec_new_secure_path_seg(pcount, 0, asns[i]);
             if (!new_path) {
                 bgpsecpg_dbg("Error while generating secure path segment");
                 exit_val = EXIT_FAILURE;
                 goto err;
             }
-            rtr_mgr_bgpsec_append_sec_path_seg(bgpsec, new_path);
+            rtr_mgr_bgpsec_prepend_sec_path_seg(bgpsec, new_path);
 
             if (i > 0) {
-                bgpsec->target_as = atoi(asns[i - 1]);
+                bgpsec->target_as = asns[i - pcount];
             } else {
                 bgpsec->target_as = target_as;
             }
@@ -357,8 +369,11 @@ int main(int argc, char *argv[])
                 exit_val = EXIT_FAILURE;
                 goto err;
             }
-            memcpy(new_sig->ski, vault->keys[i]->ski, SKI_SIZE);
+
+            memcpy(new_sig->ski, k->ski, SKI_SIZE);
             rtr_mgr_bgpsec_prepend_sig_seg(bgpsec, new_sig);
+
+            align_byte_sequence(bgpsec);
         }
 
         upd = generate_bgpsec_upd(bgpsec);
@@ -388,9 +403,14 @@ int main(int argc, char *argv[])
         }
 
         /* only increment the update count if the maximum option is set */
-        if (maximum_set)
+        if (maximum_set) {
             upd_count++;
+            fprintf(stdout, "Generated Update %d/%d\r", upd_count, maximum);
+            fflush(stdout);
+        }
+
     } while((re = get_next_rib_entry(rib_f)) && upd_count < maximum);
+    printf("\n");
 
 err:
     if (conf) {

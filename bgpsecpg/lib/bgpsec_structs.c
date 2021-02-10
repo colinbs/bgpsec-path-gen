@@ -135,7 +135,6 @@ struct rtr_bgpsec_nlri *convert_prefix(char *nlri_str) {
     char *tok = "/";
     char *ip_str = NULL;
 
-    bgpsecpg_dbg("%d: %s", pos, nlri_str);
     nlri = rtr_mgr_bgpsec_nlri_new();
     if (!nlri)
         return NULL;

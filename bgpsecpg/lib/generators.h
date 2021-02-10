@@ -36,4 +36,6 @@ struct rtr_signature_seg *generate_signature(
 uint16_t generate_mp_attr(uint8_t *buffer,
                           uint8_t *nexthop,
                           struct rtr_bgpsec *bgpsec);
+
+int align_byte_sequence(const struct rtr_bgpsec *data);
 #endif

@@ -1,3 +1,3 @@
 - Add RTR options.
 - Add config file option for RTR settings.
-- Generate BGPsec open messages
+- Check for AS path length in Update dump. Continue with next line if AS path length > 40.

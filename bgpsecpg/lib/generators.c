@@ -67,7 +67,8 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     uint8_t *mp_buffer;
     uint16_t mp_i = 0;
     uint16_t upd_len = 0;
-    uint8_t nexthop[4] = { 0xAC, 0x12, 0x00, 0x02 };
+    uint16_t upd_len_n = 0;
+    uint8_t nexthop[4] = { 0x00, 0x00, 0x00, 0x00 };
 
     if (!new_upd)
         return NULL;
@@ -103,12 +104,12 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     total_attr_len_p = upd; // Save position for later
     upd += 2;
 
-    tmp16 = ntohs((bgpsec->path_len * 6) + 2);
+    tmp16 = htons((bgpsec->path_len * 6) + 2);
     memcpy(upd, &tmp16, 2); // Secure Path Length
     upd += 2;
 
     while (sec) {
-        uint32_t asn = ntohl(sec->asn);
+        uint32_t asn = htonl(sec->asn);
         *upd = sec->pcount;
         upd += 1;
         *upd = sec->flags;
@@ -127,7 +128,7 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     sig_block_len += 1;
 
     while (sig) {
-        int sig_len = ntohs(sig->sig_len);
+        uint16_t sig_len = htons(sig->sig_len);
         memcpy(upd, sig->ski, SKI_SIZE);
         upd += SKI_SIZE;
         memcpy(upd, &sig_len, 2);
@@ -139,27 +140,28 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     }
 
     upd = sig_block_len_p;
-    tmp16 = ntohs(sig_block_len);
+    tmp16 = htons(sig_block_len);
     memcpy(upd, &tmp16, 2);
 
     total_attr_len += 6 + (bgpsec->path_len * 6);
     total_attr_len += sig_block_len;
 
     upd = total_attr_len_p;
-    tmp16 = ntohs(total_attr_len - 4); // Subtract Flags, Type Code and Length Fields
+    tmp16 = htons(total_attr_len - 4); // Subtract Flags, Type Code and Length Fields
     memcpy(upd, &tmp16, 2);
 
-    upd_len = ntohs(BGPSEC_UPD_HEADER_SIZE +
-                    mp_i +
-                    BGPSEC_UPD_HEADER_REST_SIZE +
-                    total_attr_len);
-    memcpy(&start[16], &upd_len, 2);
+    upd_len = BGPSEC_UPD_HEADER_SIZE +
+              mp_i +
+              BGPSEC_UPD_HEADER_REST_SIZE +
+              total_attr_len;
+    upd_len_n = htons(upd_len);
+    memcpy(&start[16], &upd_len_n, 2);
 
-    path_attr_len = ntohs(htons(upd_len) - BGPSEC_UPD_HEADER_SIZE);
+    path_attr_len = htons(upd_len - BGPSEC_UPD_HEADER_SIZE);
     memcpy(&start[21], &path_attr_len, 2);
 
     new_upd->upd = start;
-    new_upd->len = ntohs(upd_len);
+    new_upd->len = upd_len;
 
     free(mp_buffer);
 
@@ -172,12 +174,13 @@ uint16_t generate_mp_attr(uint8_t *buffer,
     uint16_t mp_i = 0;
     uint16_t tmp = 0;
     uint8_t nlri_byte_len = (bgpsec->nlri.prefix_len + 7) / 8;
+    uint8_t *start = buffer;
 
     buffer[mp_i++] = 0x90; // Flags
     buffer[mp_i++] = 0x0E; // Type Code
     buffer[mp_i++] = 0x00; // Length (temp)
     buffer[mp_i++] = 0x00; // Length (temp)
-    tmp = ntohs(bgpsec->nlri.prefix.ver + 1);
+    tmp = htons(bgpsec->nlri.prefix.ver + 1);
     memcpy(&buffer[mp_i], &tmp, 2); // AFI
     mp_i += 2;
     buffer[mp_i++] = 0x01; // SAFI
@@ -195,17 +198,112 @@ uint16_t generate_mp_attr(uint8_t *buffer,
     if (bgpsec->nlri.prefix.ver == LRTR_IPV4) {
         // IPv4 NLRI
         uint32_t addr = htonl(bgpsec->nlri.prefix.u.addr4.addr);
-        memcpy(&buffer[mp_i], &addr, nlri_byte_len);
+		memcpy(&buffer[mp_i], &addr, nlri_byte_len);
         mp_i += nlri_byte_len;
     } else {
+        // TODO: needs proper testing!
         // IPv6 NLRI
-        for (int i = (nlri_byte_len - 1); i >= 0; i--) {
-            buffer[mp_i + i] = bgpsec->nlri.prefix.u.addr6.addr[i];
-        }
+        uint32_t addr[4] = {0};
+        addr[0] = htonl(bgpsec->nlri.prefix.u.addr6.addr[0]);
+        addr[1] = htonl(bgpsec->nlri.prefix.u.addr6.addr[1]);
+        addr[2] = htonl(bgpsec->nlri.prefix.u.addr6.addr[2]);
+        addr[3] = htonl(bgpsec->nlri.prefix.u.addr6.addr[3]);
+		memcpy(&buffer[mp_i], addr, nlri_byte_len);
         mp_i += nlri_byte_len;
     }
-    tmp = ntohs(mp_i - 4); // Subtract Flags, Type Code and Length Fields
+    tmp = htons(mp_i - 4); // Subtract Flags, Type Code and Length Fields
     memcpy(&buffer[2], &tmp, 2); // Total Length
 
     return mp_i;
+}
+
+int align_byte_sequence(const struct rtr_bgpsec *data)
+{
+	/* Variables used for network-to-host-order transformation. */
+	uint32_t asn = 0;
+	uint16_t afi = 0;
+    uint8_t *buffer = malloc(4096);
+    uint8_t *start = buffer;
+
+	/* Temp secure path and signature segments to prevent any
+	 * alteration of the original data.
+	 */
+	struct rtr_secure_path_seg *tmp_sec = NULL;
+	struct rtr_signature_seg *tmp_sig = NULL;
+
+    memset(buffer, 0, 4096);
+
+	/* The data alignment begins here, starting with the target ASN. */
+	asn = ntohl(data->target_as);
+    memcpy(buffer, &asn, sizeof(asn));
+    buffer += sizeof(asn);
+
+	/* Depending on whether we are dealing with alignment for validation
+	 * or signing, the first signature segment is skipped.
+	 */
+	/*if (type == VALIDATION)*/
+		/*tmp_sig = data->sigs->next;*/
+	/*else*/
+
+	tmp_sec = data->path;
+
+	while (tmp_sec) {
+		if (tmp_sig) {
+			uint16_t sig_len = ntohs(tmp_sig->sig_len);
+
+			/* Write the signature segment data to stream. */
+			memcpy(buffer, tmp_sig->ski, SKI_SIZE);
+            buffer += SKI_SIZE;
+			memcpy(buffer, &sig_len, sizeof(sig_len));
+            buffer += 2;
+			memcpy(buffer, tmp_sig->signature, tmp_sig->sig_len);
+            buffer += tmp_sig->sig_len;
+
+			tmp_sig = tmp_sig->next;
+		}
+
+		/* Write the secure path segment data to stream. */
+		memcpy(buffer, (uint8_t *)&tmp_sec->pcount, 1);
+        buffer++;
+		memcpy(buffer, (uint8_t *)&tmp_sec->flags, 1);
+        buffer++;
+
+		asn = ntohl(tmp_sec->asn);
+		memcpy(buffer, &asn, sizeof(asn));
+        buffer += sizeof(asn);
+		tmp_sec = tmp_sec->next;
+	}
+
+	/* Write the rest of the data to stream. */
+	memcpy(buffer, (uint8_t *)&data->alg, 1);
+    buffer++;
+
+	afi = ntohs(data->afi);
+	memcpy(buffer, &afi, sizeof(afi));
+    buffer += sizeof(afi);
+
+	memcpy(buffer, (uint8_t *)&data->safi, 1);
+    buffer++;
+	memcpy(buffer, (uint8_t *)&data->nlri.prefix_len, 1);
+    buffer++;
+
+	/* Make sure we write the right IP address type by checking the AFI. */
+	switch (data->nlri.prefix.ver) {
+	case LRTR_IPV4:
+		memcpy(buffer, (uint8_t *)&data->nlri.prefix.u.addr4.addr,
+			     (data->nlri.prefix_len + 7 ) / 8);
+        buffer += (data->nlri.prefix_len + 7 ) / 8;
+
+		break;
+	case LRTR_IPV6:
+		memcpy(buffer, (uint8_t *)&data->nlri.prefix.u.addr6.addr,
+			     (data->nlri.prefix_len + 7 ) / 8);
+        buffer += (data->nlri.prefix_len + 7 ) / 8;
+		break;
+	default:
+		/* Should not come here. */
+		return RTR_BGPSEC_UNSUPPORTED_AFI;
+	}
+
+	return RTR_BGPSEC_SUCCESS;
 }
