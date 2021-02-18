@@ -27,14 +27,15 @@ struct rtr_bgpsec *generate_bgpsec_data(uint32_t origin_as,
 
 uint8_t *generate_new_upd();
 
-struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec);
+struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec,
+                                       struct rtr_bgpsec_nlri *nexthop);
 
 struct rtr_signature_seg *generate_signature(
                             struct rtr_bgpsec *data,
                             struct key *priv_key);
 
 uint16_t generate_mp_attr(uint8_t *buffer,
-                          uint8_t *nexthop,
+                          struct rtr_bgpsec_nlri *nexthop,
                           struct rtr_bgpsec *bgpsec);
 
 int align_byte_sequence(const struct rtr_bgpsec *data);

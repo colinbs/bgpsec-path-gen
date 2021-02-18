@@ -52,7 +52,8 @@ struct rtr_signature_seg *generate_signature(
     return new_sig;
 }
 
-struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
+struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec,
+                                       struct rtr_bgpsec_nlri *nexthop) {
     struct bgpsec_upd *new_upd = malloc(sizeof(struct bgpsec_upd));
     uint8_t *upd = NULL;
     uint16_t total_attr_len = 0;
@@ -68,7 +69,6 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
     uint16_t mp_i = 0;
     uint16_t upd_len = 0;
     uint16_t upd_len_n = 0;
-    uint8_t nexthop[4] = { 0x00, 0x00, 0x00, 0x00 };
 
     if (!new_upd)
         return NULL;
@@ -169,7 +169,7 @@ struct bgpsec_upd *generate_bgpsec_upd(struct rtr_bgpsec *bgpsec) {
 }
 
 uint16_t generate_mp_attr(uint8_t *buffer,
-                          uint8_t *nexthop,
+                          struct rtr_bgpsec_nlri *nexthop,
                           struct rtr_bgpsec *bgpsec) {
     uint16_t mp_i = 0;
     uint16_t tmp = 0;
@@ -185,12 +185,21 @@ uint16_t generate_mp_attr(uint8_t *buffer,
     mp_i += 2;
     buffer[mp_i++] = 0x01; // SAFI
     if (bgpsec->nlri.prefix.ver == LRTR_IPV4) {
+        // IPv4 Nexthop
         buffer[mp_i++] = 0x04; // Nexthop Length
-        memcpy(&buffer[mp_i], nexthop, 4); // IPv4 Nexthop
+        uint32_t addr = htonl(nexthop->prefix.u.addr4.addr);
+        memcpy(&buffer[mp_i], &addr, 4); // IPv4 Nexthop
         mp_i += 4;
     } else {
+        // TODO: needs proper testing!
+        // IPv6 Nexthop
         buffer[mp_i++] = 0x20; // Nexthop Length
-        memcpy(&buffer[mp_i], nexthop, 32); // IPv6 Nexthop
+        uint32_t addr[4] = {0};
+        addr[0] = htonl(nexthop->prefix.u.addr6.addr[0]);
+        addr[1] = htonl(nexthop->prefix.u.addr6.addr[1]);
+        addr[2] = htonl(nexthop->prefix.u.addr6.addr[2]);
+        addr[3] = htonl(nexthop->prefix.u.addr6.addr[3]);
+		memcpy(&buffer[mp_i], addr, 32);
         mp_i += 32;
     }
     buffer[mp_i++] = 0x00; // SNPA

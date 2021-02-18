@@ -65,6 +65,7 @@ static struct option long_opts[] = {
     {"append-output", no_argument, 0, 'd'},
     {"rib-dump", required_argument, 0, 'r'},
     {"maximum", required_argument, 0, 'm'},
+    {"nexthop", required_argument, 0, 'x'},
     {0, 0, 0, 0}
 };
 
@@ -92,6 +93,7 @@ static void print_usage(void)
             \t\t  used together with -a or -n.\n");
     printf("  -m, --maximum\t\tmaximum updates that should be generated. Default is\n\
             \t\t  unlimited.\n");
+    printf("  -x, --nexthop\t\tIP address that is used as nexthop in the MP attribute.\n");
 }
 
 static int establish_rtr_connection(struct master_conf **cnf) {
@@ -155,11 +157,13 @@ int main(int argc, char *argv[])
     char *outfile = NULL;
     char *readfile = NULL;
     char *ribfile = NULL;
+    char *nexthop_str = NULL;
     struct master_conf *conf = NULL;
     struct rtr_bgpsec *bgpsec = NULL;
     struct bgpsec_upd *upd = NULL;
     struct rtr_signature_seg *new_sig = NULL;
     struct rtr_bgpsec_nlri *nlri = NULL;
+    struct rtr_bgpsec_nlri *nexthop = NULL;
     struct key_vault *vault = NULL;
     /*char *host = "0.0.0.0";*/
     /*char *port = "8383";*/
@@ -178,7 +182,7 @@ int main(int argc, char *argv[])
     uint8_t pcount = 1;
 
     do {
-        opt = getopt_long(argc, argv, "ho:a:n:k:p:bt:dr:m:", long_opts, &option_index);
+        opt = getopt_long(argc, argv, "ho:a:n:k:p:bt:dr:m:x:", long_opts, &option_index);
 
         switch (opt) {
         case 'h':
@@ -232,6 +236,9 @@ int main(int argc, char *argv[])
             maximum = atoi(optarg);
             maximum_set = 1;
             break;
+        case 'x':
+            nexthop_str = optarg;
+            break;
         case -1:
             break;
         default:
@@ -247,6 +254,12 @@ int main(int argc, char *argv[])
 
     if (!keydir) {
         printf("\nKey directory must be specified with -k/--keys\n\n");
+        print_usage();
+        exit(EXIT_FAILURE);
+    }
+
+    if (!nexthop_str) {
+        printf("\nNexthop must be specified with -x/--nexthop\n\n");
         print_usage();
         exit(EXIT_FAILURE);
     }
@@ -277,6 +290,14 @@ int main(int argc, char *argv[])
         upd_count = 0;
     }
 
+    nexthop = rtr_mgr_bgpsec_nlri_new();
+    if (!nexthop) {
+        error_reason = "Error: Could parse nexthop";
+        exit_val = EXIT_FAILURE;
+        goto err;
+    }
+    lrtr_ip_str_to_addr(nexthop_str, &nexthop->prefix);
+
     /* establish the RTR connection */
     rtval = establish_rtr_connection(&conf);
     if (rtval == ERROR) {
@@ -288,6 +309,10 @@ int main(int argc, char *argv[])
     vault = load_key_dir(keydir);
     if (!vault) {
         error_reason = "Error: Could not open key directory";
+        exit_val = EXIT_FAILURE;
+        goto err;
+    } else if (vault->amount == 0) {
+        error_reason = "Error: No private keys found";
         exit_val = EXIT_FAILURE;
         goto err;
     }
@@ -376,7 +401,7 @@ int main(int argc, char *argv[])
             align_byte_sequence(bgpsec);
         }
 
-        upd = generate_bgpsec_upd(bgpsec);
+        upd = generate_bgpsec_upd(bgpsec, nexthop);
 
         if (output_f) {
             write_output(output_f, upd);
@@ -443,6 +468,9 @@ err:
     if (re) {
         rtr_mgr_bgpsec_nlri_free(re->nlri);
         free(re);
+    }
+    if (nexthop) {
+        rtr_mgr_bgpsec_nlri_free(nexthop);
     }
 
     if (error_reason) {
