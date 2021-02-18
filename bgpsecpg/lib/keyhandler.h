@@ -3,7 +3,7 @@
 
 #include "bgpsec_structs.h"
 
-#define MAX_KEYS 1000
+#define MAX_KEYS 500000
 
 struct key {
     unsigned char ski[SKI_SIZE];

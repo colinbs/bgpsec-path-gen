@@ -5,6 +5,7 @@
 #include <dirent.h>
 
 #include "keyhandler.h"
+#include "log.h"
 
 #define PRIV_KEY_BUFFER_SIZE 500
 #define SKI_STR_SIZE 41
@@ -41,6 +42,10 @@ struct key_vault *load_key_dir(char *filepath) {
                 struct key *k = load_key(fullpath, d_ent->d_name);
                 if (k)
                     add_key_to_vault(vault, k);
+                if (vault->amount > MAX_KEYS) {
+                    bgpsecpg_dbg("Reached the maximum amount of router keys.");
+                    break;
+                }
             }
         }
     }

@@ -397,8 +397,6 @@ int main(int argc, char *argv[])
 
             memcpy(new_sig->ski, k->ski, SKI_SIZE);
             rtr_mgr_bgpsec_prepend_sig_seg(bgpsec, new_sig);
-
-            align_byte_sequence(bgpsec);
         }
 
         upd = generate_bgpsec_upd(bgpsec, nexthop);
@@ -419,12 +417,8 @@ int main(int argc, char *argv[])
         }
 
         if (re) {
-            rtr_mgr_bgpsec_nlri_free(re->nlri);
             free(re);
             re = NULL;
-        } else if (nlri) {
-            rtr_mgr_bgpsec_nlri_free(nlri);
-            nlri = NULL;
         }
 
         /* only increment the update count if the maximum option is set */
