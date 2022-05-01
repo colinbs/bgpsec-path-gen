@@ -36,7 +36,7 @@ Here are some examples, how this tool can be used.
 
 This will result in a file containing 10 BGPsec updates in binary format.
 
-`-r updates.dump` is the file that was generated using `bgpdump`
-`-k keys/` is the directory that stores the private keys used for signing
-`-o bgpsec-updates.bin` is the output file storing the resulting BGPsec updates in binary format
-`-m 10` defines a maximum of 10 generated updates. If no value is given, the entire input dump is processed
+* `-r updates.dump` is the file that was generated using `bgpdump`
+* `-k keys/` is the directory that stores the private keys used for signing
+* `-o bgpsec-updates.bin` is the output file storing the resulting BGPsec updates in binary format
+* `-m 10` defines a maximum of 10 generated updates. If no value is given, the entire input dump is processed
