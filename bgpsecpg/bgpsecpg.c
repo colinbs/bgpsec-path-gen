@@ -149,6 +149,7 @@ int main(int argc, char *argv[])
     int option_index = 0;
     int rtval = 0;
     int i;
+    int nlri_len = 0;
     const char *tok = {","};
     uint32_t asns[MAX_ASN_COUNT] = {0};
     int asn_count = 0;
@@ -165,6 +166,7 @@ int main(int argc, char *argv[])
     struct rtr_bgpsec_nlri *nlri = NULL;
     struct rtr_bgpsec_nlri *nexthop = NULL;
     struct key_vault *vault = NULL;
+    struct lrtr_ip_addr tmpaddr;
     /*char *host = "0.0.0.0";*/
     /*char *port = "8383";*/
     int exit_val = EXIT_SUCCESS;
@@ -238,6 +240,7 @@ int main(int argc, char *argv[])
             break;
         case 'x':
             nexthop_str = optarg;
+            nlri_len = 0;
             break;
         case -1:
             break;
@@ -290,13 +293,20 @@ int main(int argc, char *argv[])
         upd_count = 0;
     }
 
-    nexthop = rtr_mgr_bgpsec_nlri_new();
+    nlri_len = get_nlri_len(nexthop_str);
+    nexthop = rtr_mgr_bgpsec_nlri_new(nlri_len);
     if (!nexthop) {
         error_reason = "Error: Could parse nexthop";
         exit_val = EXIT_FAILURE;
         goto err;
     }
-    lrtr_ip_str_to_addr(nexthop_str, &nexthop->prefix);
+
+	lrtr_ip_str_to_addr(nexthop_str, &tmpaddr);
+
+    *nexthop->nlri = tmpaddr.u.addr4.addr;
+    if (tmpaddr.ver == LRTR_IPV6) {
+        *nexthop->nlri = tmpaddr.u.addr6.addr;
+    }
 
     /* establish the RTR connection */
     rtval = establish_rtr_connection(&conf);

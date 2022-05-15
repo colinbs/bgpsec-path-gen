@@ -68,4 +68,6 @@ int get_upd_len(struct rtr_bgpsec *bgpsec);
 
 struct rtr_bgpsec_nlri *convert_prefix(char *nlri_str);
 
+int get_nlri_len(char* nlri_str);
+
 #endif

@@ -173,21 +173,21 @@ uint16_t generate_mp_attr(uint8_t *buffer,
                           struct rtr_bgpsec *bgpsec) {
     uint16_t mp_i = 0;
     uint16_t tmp = 0;
-    uint8_t nlri_byte_len = (bgpsec->nlri->prefix_len + 7) / 8;
+    uint8_t nlri_byte_len = (bgpsec->nlri->nlri_len + 7) / 8;
     uint8_t *start = buffer;
 
     buffer[mp_i++] = 0x90; // Flags
     buffer[mp_i++] = 0x0E; // Type Code
     buffer[mp_i++] = 0x00; // Length (temp)
     buffer[mp_i++] = 0x00; // Length (temp)
-    tmp = htons(bgpsec->nlri->prefix.ver + 1);
+    tmp = htons(bgpsec->nlri->afi);
     memcpy(&buffer[mp_i], &tmp, 2); // AFI
     mp_i += 2;
     buffer[mp_i++] = 0x01; // SAFI
-    if (bgpsec->nlri->prefix.ver == LRTR_IPV4) {
+    if (bgpsec->nlri->afi == 1) {
         // IPv4 Nexthop
         buffer[mp_i++] = 0x04; // Nexthop Length
-        uint32_t addr = htonl(nexthop->prefix.u.addr4.addr);
+        uint32_t addr = htonl(*nexthop->nlri);
         memcpy(&buffer[mp_i], &addr, 4); // IPv4 Nexthop
         mp_i += 4;
     } else {
@@ -195,28 +195,28 @@ uint16_t generate_mp_attr(uint8_t *buffer,
         // IPv6 Nexthop
         buffer[mp_i++] = 0x20; // Nexthop Length
         uint32_t addr[4] = {0};
-        addr[0] = htonl(nexthop->prefix.u.addr6.addr[0]);
-        addr[1] = htonl(nexthop->prefix.u.addr6.addr[1]);
-        addr[2] = htonl(nexthop->prefix.u.addr6.addr[2]);
-        addr[3] = htonl(nexthop->prefix.u.addr6.addr[3]);
+        addr[0] = htonl(nexthop->nlri[0]);
+        addr[1] = htonl(nexthop->nlri[1]);
+        addr[2] = htonl(nexthop->nlri[2]);
+        addr[3] = htonl(nexthop->nlri[3]);
 		memcpy(&buffer[mp_i], addr, 32);
         mp_i += 32;
     }
     buffer[mp_i++] = 0x00; // SNPA
-    buffer[mp_i++] = bgpsec->nlri->prefix_len; // NLRI Length
-    if (bgpsec->nlri->prefix.ver == LRTR_IPV4) {
+    buffer[mp_i++] = bgpsec->nlri->nlri_len; // NLRI Length
+    if (bgpsec->nlri->afi == 1) {
         // IPv4 NLRI
-        uint32_t addr = htonl(bgpsec->nlri->prefix.u.addr4.addr);
+        uint32_t addr = htonl(*bgpsec->nlri->nlri);
 		memcpy(&buffer[mp_i], &addr, nlri_byte_len);
         mp_i += nlri_byte_len;
     } else {
         // TODO: needs proper testing!
         // IPv6 NLRI
         uint32_t addr[4] = {0};
-        addr[0] = htonl(bgpsec->nlri->prefix.u.addr6.addr[0]);
-        addr[1] = htonl(bgpsec->nlri->prefix.u.addr6.addr[1]);
-        addr[2] = htonl(bgpsec->nlri->prefix.u.addr6.addr[2]);
-        addr[3] = htonl(bgpsec->nlri->prefix.u.addr6.addr[3]);
+        addr[0] = htonl(bgpsec->nlri->nlri[0]);
+        addr[1] = htonl(bgpsec->nlri->nlri[1]);
+        addr[2] = htonl(bgpsec->nlri->nlri[2]);
+        addr[3] = htonl(bgpsec->nlri->nlri[3]);
 		memcpy(&buffer[mp_i], addr, nlri_byte_len);
         mp_i += nlri_byte_len;
     }
@@ -293,21 +293,21 @@ int align_byte_sequence(const struct rtr_bgpsec *data)
 
 	memcpy(buffer, (uint8_t *)&data->safi, 1);
     buffer++;
-	memcpy(buffer, (uint8_t *)&data->nlri->prefix_len, 1);
+	memcpy(buffer, (uint8_t *)&data->nlri->nlri_len, 1);
     buffer++;
 
 	/* Make sure we write the right IP address type by checking the AFI. */
-	switch (data->nlri->prefix.ver) {
-	case LRTR_IPV4:
-		memcpy(buffer, (uint8_t *)&data->nlri->prefix.u.addr4.addr,
-			     (data->nlri->prefix_len + 7 ) / 8);
-        buffer += (data->nlri->prefix_len + 7 ) / 8;
+	switch (data->nlri->afi) {
+	case 1:
+		memcpy(buffer, data->nlri->nlri,
+			     (data->nlri->nlri_len + 7 ) / 8);
+        buffer += (data->nlri->nlri_len + 7 ) / 8;
 
 		break;
-	case LRTR_IPV6:
-		memcpy(buffer, (uint8_t *)&data->nlri->prefix.u.addr6.addr,
-			     (data->nlri->prefix_len + 7 ) / 8);
-        buffer += (data->nlri->prefix_len + 7 ) / 8;
+	case 2:
+		memcpy(buffer, data->nlri->nlri,
+			     (data->nlri->nlri_len + 7 ) / 8);
+        buffer += (data->nlri->nlri_len + 7 ) / 8;
 		break;
 	default:
 		/* Should not come here. */

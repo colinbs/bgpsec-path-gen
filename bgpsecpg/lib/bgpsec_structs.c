@@ -131,26 +131,44 @@ int get_upd_len(struct rtr_bgpsec *bgpsec) {
 
 struct rtr_bgpsec_nlri *convert_prefix(char *nlri_str) {
     struct rtr_bgpsec_nlri *nlri = NULL;
+    struct lrtr_ip_addr tmpaddr;
     char *len_str = NULL;
     char *tok = "/";
     char *ip_str = NULL;
+    int nlri_len = get_nlri_len(nlri_str);
 
-    nlri = rtr_mgr_bgpsec_nlri_new();
+    nlri = rtr_mgr_bgpsec_nlri_new(nlri_len);
     if (!nlri)
         return NULL;
 
     /* Call twice to get the string after the slash */
     strtok(nlri_str, tok);
     len_str = strtok(NULL, tok);
-    nlri->prefix_len = atoi(len_str);
+    nlri->nlri_len = atoi(len_str);
 
-    nlri->prefix.ver = LRTR_IPV4;
+    nlri->afi = 1;
+    tmpaddr.ver = LRTR_IPV4;
     if (strstr(nlri_str, ":") != NULL) {
-        nlri->prefix.ver = LRTR_IPV6;
+        tmpaddr.ver = LRTR_IPV6;
+        nlri->afi = 2;
     }
 
-    ip_str = strtok(nlri_str, tok);
-    lrtr_ip_str_to_addr(ip_str, &nlri->prefix);
+    /*ip_str = strtok(nlri_str, tok);*/
+	lrtr_ip_str_to_addr(nlri_str, &tmpaddr);
+
+    *nlri->nlri = tmpaddr.u.addr4.addr;
+    if (tmpaddr.ver == LRTR_IPV6) {
+        *nlri->nlri = tmpaddr.u.addr6.addr;
+    }
 
     return nlri;
+}
+
+int get_nlri_len(char* nlri_str) {
+    // Basically, just count '.'s
+    int count = 0;
+    for (int i = 0; nlri_str[i]; i++) {
+        if (nlri_str[i]== '.') count++;
+    }
+    return count;
 }
